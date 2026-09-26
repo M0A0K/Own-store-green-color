@@ -1,0 +1,6 @@
+{
+  "name": "OwnVerse Store — Official Minecraft Network Storefront",
+  "description": "Official OwnVerse Minecraft Server Store. Browse ranks, combat kits, mythic crate keys, and cosmetics with instant automated delivery, live server telemetry, and secure checkout.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
