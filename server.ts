@@ -675,17 +675,42 @@ async function startServer() {
       res.sendFile(distIndexPath);
     });
   } else {
-    const { createServer: createViteServer } = await import('vite');
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
-    app.use(vite.middlewares);
+    try {
+      const { createServer: createViteServer } = await import('vite');
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: 'spa',
+      });
+      app.use(vite.middlewares);
+    } catch {
+      app.get('*', async (_req: Request, res: Response) => {
+        const storeData = await getPublicStoreBootstrap();
+        res
+          .setHeader('Content-Type', 'text/html; charset=utf-8')
+          .send(generateStandaloneStoreHtml(storeData));
+      });
+    }
   }
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`OwnVerse Store server running on http://0.0.0.0:${PORT}`);
+    // Pre-warm store bootstrap / DB connection immediately on boot
+    getPublicStoreBootstrap().catch((err) =>
+      console.warn('Initial store bootstrap pre-warm notice:', err?.message || err)
+    );
   });
+
+  // On Railway, if the public domain target port is set to 3000 while PORT=8080 (or vice versa),
+  // also listen on the alternate port so Railway's proxy always connects.
+  if (isProdEnv) {
+    const fallbackPort = PORT === 8080 ? 3000 : 8080;
+    const secondaryServer = app.listen(fallbackPort, '0.0.0.0', () => {
+      console.log(`OwnVerse Store secondary listener active on http://0.0.0.0:${fallbackPort}`);
+    });
+    secondaryServer.on('error', () => {
+      // Ignore if secondary port is unavailable
+    });
+  }
 }
 
 startServer();
