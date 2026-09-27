@@ -16,6 +16,7 @@ import {
 import { StoreProduct, StoreSale, StoreSection } from '../types/store.ts';
 import { SafeMarkdown } from './SafeMarkdown.tsx';
 import { SmartImage } from './SmartImage.tsx';
+import { formatUsdPkr } from '../lib/currency.ts';
 
 interface ProductDetailModalProps {
   product: StoreProduct | null;
@@ -313,13 +314,13 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   <span className="text-xs font-mono uppercase tracking-wider text-zinc-400 block mb-1">
                     Package Price
                   </span>
-                  <div className="flex items-baseline gap-2.5">
-                    <span className="text-3xl font-extrabold text-white font-mono">
-                      ${pricing.effectivePrice.toFixed(2)}
+                  <div className="flex flex-wrap items-baseline gap-2.5">
+                    <span className="text-xl sm:text-2xl font-extrabold text-white font-mono">
+                      {formatUsdPkr(pricing.effectivePrice, currencySymbol)}
                     </span>
                     {pricing.effectivePrice < pricing.originalPrice && (
-                      <span className="text-sm text-zinc-500 line-through font-mono">
-                        ${pricing.originalPrice.toFixed(2)}
+                      <span className="text-xs sm:text-sm text-zinc-500 line-through font-mono">
+                        {formatUsdPkr(pricing.originalPrice, currencySymbol)}
                       </span>
                     )}
                   </div>
@@ -417,7 +418,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   <ShoppingBag className="w-4 h-4" />
                   {isOutOfStock
                     ? 'Out of Stock'
-                    : `Add to Cart — $${(pricing.effectivePrice * quantity).toFixed(2)}`}
+                    : `Add to Cart — ${formatUsdPkr(pricing.effectivePrice * quantity, currencySymbol)}`}
                 </button>
               </div>
             </div>
@@ -602,15 +603,13 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                         <h4 className="text-sm font-bold text-white truncate group-hover:text-red-400 transition-colors">
                           {rel.name}
                         </h4>
-                        <div className="flex items-baseline gap-2 mt-0.5">
-                          <span className="text-sm font-mono font-bold text-red-400">
-                            {currencySymbol}
-                            {relPrice.effectivePrice.toFixed(2)}
+                        <div className="flex flex-wrap items-baseline gap-2 mt-0.5">
+                          <span className="text-xs font-mono font-bold text-red-400">
+                            {formatUsdPkr(relPrice.effectivePrice, currencySymbol)}
                           </span>
                           {relPrice.effectivePrice < relPrice.originalPrice && (
-                            <span className="text-xs font-mono text-zinc-500 line-through">
-                              {currencySymbol}
-                              {relPrice.originalPrice.toFixed(2)}
+                            <span className="text-[11px] font-mono text-zinc-500 line-through">
+                              {formatUsdPkr(relPrice.originalPrice, currencySymbol)}
                             </span>
                           )}
                         </div>

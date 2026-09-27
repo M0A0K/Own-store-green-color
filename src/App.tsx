@@ -32,6 +32,7 @@ import {
   FaqSupportPoliciesView,
 } from './components/OrderLookupAndPolicies.tsx';
 import { AdminDashboard } from './components/AdminDashboard.tsx';
+import { formatUsdPkr } from './lib/currency.ts';
 
 type ViewMode =
   | 'store'
@@ -1092,16 +1093,14 @@ export default function App() {
 
                           {/* Price Baseline & Action Buttons */}
                           <div className="pt-4 border-t border-[#2C181D] space-y-3">
-                            <div className="flex items-baseline justify-between font-mono tabular-nums">
-                              <div className="flex items-baseline gap-2">
-                                <span className="text-lg font-bold text-white">
-                                  {currencySymbol}
-                                  {product.effectivePrice.toFixed(2)}
+                            <div className="flex flex-wrap items-baseline justify-between gap-1 font-mono tabular-nums">
+                              <div className="flex flex-wrap items-baseline gap-2">
+                                <span className="text-base sm:text-lg font-bold text-white">
+                                  {formatUsdPkr(product.effectivePrice, currencySymbol)}
                                 </span>
                                 {product.isOnSale && (
                                   <span className="text-xs text-zinc-500 line-through">
-                                    {currencySymbol}
-                                    {product.originalPrice.toFixed(2)}
+                                    {formatUsdPkr(product.originalPrice, currencySymbol)}
                                   </span>
                                 )}
                               </div>
@@ -1188,8 +1187,7 @@ export default function App() {
                             {rv.name}
                           </div>
                           <div className="text-xs font-mono text-red-400 tabular-nums">
-                            {currencySymbol}
-                            {rv.effectivePrice.toFixed(2)}
+                            {formatUsdPkr(rv.effectivePrice, currencySymbol)}
                           </div>
                         </div>
                       </button>

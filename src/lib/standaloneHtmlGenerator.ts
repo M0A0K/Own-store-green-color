@@ -239,15 +239,15 @@ export function generateStandaloneStoreHtml(storeData: {
       <div class="space-y-3 pt-4 border-t border-[#2C181D] mt-6">
         <div class="flex justify-between text-xs text-zinc-400">
           <span>Subtotal</span>
-          <span id="cart-subtotal" class="font-mono">$0.00</span>
+          <span id="cart-subtotal" class="font-mono">$0.00 / 0pkr</span>
         </div>
         <div class="flex justify-between text-xs text-red-400">
           <span>Promo Discount</span>
-          <span id="cart-discount" class="font-mono">-$0.00</span>
+          <span id="cart-discount" class="font-mono">-$0.00 / -0pkr</span>
         </div>
         <div class="flex justify-between text-base font-extrabold text-white">
           <span>Final Total</span>
-          <span id="cart-total" class="font-mono text-red-400">$0.00</span>
+          <span id="cart-total" class="font-mono text-red-400">$0.00 / 0pkr</span>
         </div>
         <button onclick="submitStandaloneOrder()" class="w-full py-3.5 rounded-xl bg-[#DC2626] hover:bg-red-500 text-white text-xs font-extrabold uppercase tracking-wider cursor-pointer shadow-lg shadow-red-950/60">
           Complete Order & Generate Invoice
@@ -280,7 +280,11 @@ export function generateStandaloneStoreHtml(storeData: {
 
     function formatPrice(val) {
       const sym = (STORE_DATA.settings && STORE_DATA.settings.currencySymbol) || '$';
-      return sym + Number(val || 0).toFixed(2);
+      const num = Number(val || 0);
+      const absVal = Math.abs(num);
+      const pkr = Math.round(absVal * 277);
+      const prefix = num < 0 ? '-' : '';
+      return prefix + sym + absVal.toFixed(2) + ' / ' + prefix + pkr + 'pkr';
     }
 
     function escapeHtml(str) {
@@ -552,7 +556,7 @@ export function generateStandaloneStoreHtml(storeData: {
 
       const finalTotal = Math.max(0, subtotal - discount);
       document.getElementById('cart-subtotal').textContent = formatPrice(subtotal);
-      document.getElementById('cart-discount').textContent = '-' + formatPrice(discount);
+      document.getElementById('cart-discount').textContent = formatPrice(-Math.abs(discount));
       document.getElementById('cart-total').textContent = formatPrice(finalTotal);
     }
 

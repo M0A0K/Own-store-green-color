@@ -1,4 +1,5 @@
 import type { OrderLineItem } from '../db/schema.ts';
+import { formatUsdPkr } from '../lib/currency.ts';
 
 export interface DiscordOrderPayload {
   invoiceId: string;
@@ -20,8 +21,8 @@ const STATUS_COLORS: Record<string, number> = {
   Pending: 0xf59e0b,
   Paid: 0x3b82f6,
   Processing: 0x8b5cf6,
-  Completed: 0x10b981,
-  Cancelled: 0xef4444,
+  Completed: 0xef4444,
+  Cancelled: 0x71717a,
 };
 
 export async function sendNewOrderDiscordWebhook(
@@ -37,7 +38,7 @@ export async function sendNewOrderDiscordWebhook(
     const itemsFormatted = order.items
       .map(
         (item) =>
-          `• **${item.quantity}x ${item.name}** (\`${item.productCode}\`) — ${currencySymbol}${item.lineTotal.toFixed(2)} *(Orig: ${currencySymbol}${item.unitOriginalPrice.toFixed(2)} ea)*`
+          `• **${item.quantity}x ${item.name}** (\`${item.productCode}\`) — **${formatUsdPkr(item.lineTotal, currencySymbol)}** *(Orig: ${formatUsdPkr(item.unitOriginalPrice, currencySymbol)} ea)*`
       )
       .join('\n');
 
@@ -49,7 +50,7 @@ export async function sendNewOrderDiscordWebhook(
     const embed = {
       title: `🛒 New OwnVerse Store Order — ${order.invoiceId}`,
       description: `A new order has been placed on **OwnVerse Store** and is awaiting verification.`,
-      color: STATUS_COLORS[order.status] ?? 0x10b981,
+      color: STATUS_COLORS[order.status] ?? 0xef4444,
       fields: [
         {
           name: 'Invoice / Order ID',
@@ -82,35 +83,35 @@ export async function sendNewOrderDiscordWebhook(
           inline: true,
         },
         {
-          name: 'Purchased Items',
+          name: 'Purchased Items (USD / PKR)',
           value: itemsFormatted || 'No items listed',
           inline: false,
         },
         {
           name: 'Original Subtotal',
-          value: `${currencySymbol}${order.subtotalOriginal.toFixed(2)}`,
+          value: formatUsdPkr(order.subtotalOriginal, currencySymbol),
           inline: true,
         },
         {
           name: 'Sale Discounts',
-          value: `-${currencySymbol}${order.saleDiscountTotal.toFixed(2)}`,
+          value: formatUsdPkr(-Math.abs(order.saleDiscountTotal), currencySymbol),
           inline: true,
         },
         {
           name: 'Promo Code & Discount',
           value: order.promoCode
-            ? `\`${order.promoCode}\` (-${currencySymbol}${order.promoDiscountTotal.toFixed(2)})`
-            : 'None ($0.00)',
+            ? `\`${order.promoCode}\` (${formatUsdPkr(-Math.abs(order.promoDiscountTotal), currencySymbol)})`
+            : `None (${formatUsdPkr(0, currencySymbol)})`,
           inline: true,
         },
         {
-          name: 'Final Total Paid',
-          value: `**${currencySymbol}${order.finalTotal.toFixed(2)}**`,
+          name: 'Final Total Paid (USD / PKR)',
+          value: `**${formatUsdPkr(order.finalTotal, currencySymbol)}**`,
           inline: false,
         },
       ],
       footer: {
-        text: 'OwnVerse Store • Automated Order Telemetry',
+        text: 'OwnVerse Store • Automated Order Telemetry (1 USD = 277 PKR)',
       },
       timestamp: timestampIso,
     };
@@ -145,7 +146,7 @@ export async function sendOrderStatusUpdateDiscordWebhook(
     const embed = {
       title: `🔄 Order Status Updated — ${order.invoiceId}`,
       description: `Order **${order.invoiceId}** for player \`${order.minecraftUsername}\` has been updated by an administrator.`,
-      color: STATUS_COLORS[order.status] ?? 0x3b82f6,
+      color: STATUS_COLORS[order.status] ?? 0xef4444,
       fields: [
         {
           name: 'Invoice ID',
@@ -173,13 +174,13 @@ export async function sendOrderStatusUpdateDiscordWebhook(
           inline: true,
         },
         {
-          name: 'Final Total',
-          value: `**${currencySymbol}${order.finalTotal.toFixed(2)}** (${order.paymentMethod})`,
+          name: 'Final Total (USD / PKR)',
+          value: `**${formatUsdPkr(order.finalTotal, currencySymbol)}** (${order.paymentMethod})`,
           inline: true,
         },
       ],
       footer: {
-        text: 'OwnVerse Store • Order Status Audit Log',
+        text: 'OwnVerse Store • Order Status Audit Log (1 USD = 277 PKR)',
       },
       timestamp: new Date().toISOString(),
     };

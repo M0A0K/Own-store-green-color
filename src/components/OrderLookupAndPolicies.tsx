@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { StoreSettings, StoreOrder, FaqItem } from '../types/store.ts';
 import { SafeMarkdown } from './SafeMarkdown.tsx';
+import { formatUsdPkr } from '../lib/currency.ts';
 
 interface OrderLookupSectionProps {
   currencySymbol?: string;
@@ -201,20 +202,44 @@ export const OrderLookupSection: React.FC<OrderLookupSectionProps> = ({
                           <span className="text-zinc-400 font-mono ml-2">x{item.quantity}</span>
                         </div>
                         <span className="font-mono font-semibold text-red-400">
-                          {currencySymbol}
-                          {item.lineTotal.toFixed(2)}
+                          {formatUsdPkr(item.lineTotal, currencySymbol)}
                         </span>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between pt-2 border-t border-[#2C181D] text-sm">
-                  <span className="text-zinc-400 font-medium">Total Paid</span>
-                  <span className="text-lg font-mono font-extrabold text-white">
-                    {currencySymbol}
-                    {Number(foundOrder.finalTotal || 0).toFixed(2)}
-                  </span>
+                <div className="space-y-1.5 pt-2 border-t border-[#2C181D] text-xs">
+                  {Number(foundOrder.subtotalOriginal || 0) > 0 && (
+                    <div className="flex items-center justify-between text-zinc-400">
+                      <span>Original Subtotal</span>
+                      <span className="font-mono">
+                        {formatUsdPkr(Number(foundOrder.subtotalOriginal || 0), currencySymbol)}
+                      </span>
+                    </div>
+                  )}
+                  {Number(foundOrder.saleDiscountTotal || 0) > 0 && (
+                    <div className="flex items-center justify-between text-red-400">
+                      <span>Sale Discount</span>
+                      <span className="font-mono">
+                        {formatUsdPkr(-Math.abs(Number(foundOrder.saleDiscountTotal || 0)), currencySymbol)}
+                      </span>
+                    </div>
+                  )}
+                  {Number(foundOrder.promoDiscountTotal || 0) > 0 && (
+                    <div className="flex items-center justify-between text-red-400">
+                      <span>Promo ({foundOrder.promoCode})</span>
+                      <span className="font-mono">
+                        {formatUsdPkr(-Math.abs(Number(foundOrder.promoDiscountTotal || 0)), currencySymbol)}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between pt-2 border-t border-[#2C181D]/60 text-sm">
+                    <span className="text-zinc-300 font-bold">Total Paid (USD / PKR)</span>
+                    <span className="text-base sm:text-lg font-mono font-extrabold text-white">
+                      {formatUsdPkr(Number(foundOrder.finalTotal || 0), currencySymbol)}
+                    </span>
+                  </div>
                 </div>
               </div>
             ) : (

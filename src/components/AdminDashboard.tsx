@@ -47,6 +47,7 @@ import {
   MediaAssetItem,
 } from './ImageMediaManager.tsx';
 import { optimizeImageFile } from '../lib/imageOptimizer.ts';
+import { formatUsdPkr } from '../lib/currency.ts';
 
 interface AdminDashboardProps {
   authToken?: string | null;
@@ -859,11 +860,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <span className="font-bold uppercase tracking-wider">Verified Revenue</span>
                     <DollarSign className="w-4 h-4 text-red-500" />
                   </div>
-                  <div className="text-2xl font-mono font-extrabold text-white">
-                    ${analytics.totalRevenue.toFixed(2)}
+                  <div className="text-xl font-mono font-extrabold text-white">
+                    {formatUsdPkr(analytics.totalRevenue)}
                   </div>
                   <span className="text-[11px] text-red-400 mt-1 block">
-                    Avg Order Value: ${analytics.averageOrderValue.toFixed(2)}
+                    Avg Order: {formatUsdPkr(analytics.averageOrderValue)}
                   </span>
                 </div>
 
@@ -928,7 +929,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             </span>
                           </div>
                           <span className="font-mono font-bold text-red-400">
-                            ${pop.revenue.toFixed(2)}
+                            {formatUsdPkr(pop.revenue)}
                           </span>
                         </div>
                       ))
@@ -1055,7 +1056,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           {ord.items.map((i) => `${i.name} x${i.quantity}`).join(', ')}
                         </td>
                         <td className="py-3.5 px-3 font-mono font-bold text-white">
-                          ${ord.finalTotal.toFixed(2)}
+                          {formatUsdPkr(ord.finalTotal)}
                         </td>
                         <td className="py-3.5 px-3">
                           <div className="text-zinc-200 font-semibold">{ord.paymentMethod}</div>
@@ -1138,9 +1139,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         </span>
                       </div>
                       <div>
-                        <span className="text-zinc-500 block">Final Total</span>
+                        <span className="text-zinc-500 block">Final Total (USD / PKR)</span>
                         <span className="font-mono font-extrabold text-red-400">
-                          ${selectedOrder.finalTotal.toFixed(2)}
+                          {formatUsdPkr(selectedOrder.finalTotal)}
                         </span>
                       </div>
                     </div>
@@ -1260,13 +1261,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           <h3 className="text-sm font-extrabold text-white truncate">
                             {prod.name}
                           </h3>
-                          <div className="flex items-baseline gap-2 mt-1">
-                            <span className="text-sm font-mono font-bold text-red-400">
-                              ${(prod.salePrice ?? prod.price).toFixed(2)}
+                          <div className="flex flex-wrap items-baseline gap-2 mt-1">
+                            <span className="text-xs font-mono font-bold text-red-400">
+                              {formatUsdPkr(prod.salePrice ?? prod.price)}
                             </span>
                             {prod.salePrice !== null && (
-                              <span className="text-xs font-mono text-zinc-500 line-through">
-                                ${prod.price.toFixed(2)}
+                              <span className="text-[11px] font-mono text-zinc-500 line-through">
+                                {formatUsdPkr(prod.price)}
                               </span>
                             )}
                           </div>

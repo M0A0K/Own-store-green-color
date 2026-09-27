@@ -20,6 +20,7 @@ import {
 } from '../types/store.ts';
 import { SmartImage } from './SmartImage.tsx';
 import { optimizeImageFile } from '../lib/imageOptimizer.ts';
+import { formatUsdPkr } from '../lib/currency.ts';
 
 interface CartCheckoutModalProps {
   isOpen: boolean;
@@ -368,16 +369,30 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
                         {item.name} <strong className="text-zinc-400">x{item.quantity}</strong>
                       </span>
                       <span className="font-mono">
-                        {currencySymbol}
-                        {item.lineTotal.toFixed(2)}
+                        {formatUsdPkr(item.lineTotal, currencySymbol)}
                       </span>
                     </div>
                   ))}
+                  {completedOrder.saleDiscountTotal > 0 && (
+                    <div className="flex justify-between text-xs text-red-400">
+                      <span>Sale Discount</span>
+                      <span className="font-mono">
+                        {formatUsdPkr(-Math.abs(completedOrder.saleDiscountTotal), currencySymbol)}
+                      </span>
+                    </div>
+                  )}
+                  {completedOrder.promoDiscountTotal > 0 && (
+                    <div className="flex justify-between text-xs text-red-400">
+                      <span>Promo ({completedOrder.promoCode})</span>
+                      <span className="font-mono">
+                        {formatUsdPkr(-Math.abs(completedOrder.promoDiscountTotal), currencySymbol)}
+                      </span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-sm font-extrabold text-white pt-2 border-t border-[#2C181D]/60">
                     <span>Final Total Paid</span>
                     <span className="font-mono text-red-400">
-                      {currencySymbol}
-                      {completedOrder.finalTotal.toFixed(2)}
+                      {formatUsdPkr(completedOrder.finalTotal, currencySymbol)}
                     </span>
                   </div>
                 </div>
@@ -486,15 +501,13 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
                           <h4 className="text-sm font-bold text-white truncate">
                             {displayName}
                           </h4>
-                          <div className="flex items-baseline gap-2 mt-0.5">
+                          <div className="flex flex-wrap items-baseline gap-2 mt-0.5">
                             <span className="text-xs font-mono font-bold text-red-400">
-                              {currencySymbol}
-                              {unitFinal.toFixed(2)} each
+                              {formatUsdPkr(unitFinal, currencySymbol)} each
                             </span>
                             {unitFinal < unitOriginal && (
                               <span className="text-[11px] font-mono text-zinc-500 line-through">
-                                {currencySymbol}
-                                {unitOriginal.toFixed(2)}
+                                {formatUsdPkr(unitOriginal, currencySymbol)}
                               </span>
                             )}
                           </div>
@@ -563,9 +576,8 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
                           CODE: {evaluation?.promoCodeApplied}
                         </span>
                         <span className="text-[11px] text-zinc-300">
-                          {evaluation?.promoCodeDescription || 'Discount applied'} (-
-                          {currencySymbol}
-                          {(evaluation?.promoDiscountTotal ?? 0).toFixed(2)})
+                          {evaluation?.promoCodeDescription || 'Discount applied'} (
+                          {formatUsdPkr(-Math.abs(evaluation?.promoDiscountTotal ?? 0), currencySymbol)})
                         </span>
                       </div>
                       <button
@@ -615,40 +627,35 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
                   <div className="flex justify-between text-zinc-400">
                     <span>Original Price Total</span>
                     <span className="font-mono">
-                      {currencySymbol}
-                      {(evaluation?.subtotalOriginal ?? 0).toFixed(2)}
+                      {formatUsdPkr(evaluation?.subtotalOriginal ?? 0, currencySymbol)}
                     </span>
                   </div>
                   {(evaluation?.saleDiscountTotal ?? 0) > 0 && (
                     <div className="flex justify-between text-red-400">
                       <span>Active Sale Savings</span>
                       <span className="font-mono">
-                        -{currencySymbol}
-                        {(evaluation?.saleDiscountTotal ?? 0).toFixed(2)}
+                        {formatUsdPkr(-Math.abs(evaluation?.saleDiscountTotal ?? 0), currencySymbol)}
                       </span>
                     </div>
                   )}
                   <div className="flex justify-between text-zinc-300 font-medium">
                     <span>Subtotal</span>
                     <span className="font-mono">
-                      {currencySymbol}
-                      {(evaluation?.subtotalAfterSales ?? 0).toFixed(2)}
+                      {formatUsdPkr(evaluation?.subtotalAfterSales ?? 0, currencySymbol)}
                     </span>
                   </div>
                   {(evaluation?.promoDiscountTotal ?? 0) > 0 && (
                     <div className="flex justify-between text-red-400 font-semibold">
                       <span>Promo Code ({evaluation?.promoCodeApplied})</span>
                       <span className="font-mono">
-                        -{currencySymbol}
-                        {(evaluation?.promoDiscountTotal ?? 0).toFixed(2)}
+                        {formatUsdPkr(-Math.abs(evaluation?.promoDiscountTotal ?? 0), currencySymbol)}
                       </span>
                     </div>
                   )}
-                  <div className="flex justify-between text-base font-extrabold text-white border-t border-[#2C181D] pt-3">
+                  <div className="flex justify-between text-sm sm:text-base font-extrabold text-white border-t border-[#2C181D] pt-3">
                     <span>Final Total</span>
                     <span className="font-mono text-red-400">
-                      {currencySymbol}
-                      {(evaluation?.finalTotal ?? 0).toFixed(2)}
+                      {formatUsdPkr(evaluation?.finalTotal ?? 0, currencySymbol)}
                     </span>
                   </div>
                 </div>
@@ -862,8 +869,7 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
                         {item.name} <strong className="text-zinc-400">x{item.quantity}</strong>
                       </span>
                       <span className="font-mono text-zinc-200 shrink-0">
-                        {currencySymbol}
-                        {item.lineTotal.toFixed(2)}
+                        {formatUsdPkr(item.lineTotal, currencySymbol)}
                       </span>
                     </div>
                   ))}
@@ -873,24 +879,21 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
                   <div className="flex justify-between text-zinc-400">
                     <span>Subtotal</span>
                     <span className="font-mono">
-                      {currencySymbol}
-                      {(evaluation?.subtotalAfterSales ?? 0).toFixed(2)}
+                      {formatUsdPkr(evaluation?.subtotalAfterSales ?? 0, currencySymbol)}
                     </span>
                   </div>
                   {(evaluation?.promoDiscountTotal ?? 0) > 0 && (
                     <div className="flex justify-between text-red-400">
                       <span>Promo ({evaluation?.promoCodeApplied})</span>
                       <span className="font-mono">
-                        -{currencySymbol}
-                        {(evaluation?.promoDiscountTotal ?? 0).toFixed(2)}
+                        {formatUsdPkr(-Math.abs(evaluation?.promoDiscountTotal ?? 0), currencySymbol)}
                       </span>
                     </div>
                   )}
-                  <div className="flex justify-between text-base font-extrabold text-white border-t border-[#2C181D] pt-3">
+                  <div className="flex justify-between text-sm sm:text-base font-extrabold text-white border-t border-[#2C181D] pt-3">
                     <span>Amount Due</span>
                     <span className="font-mono text-red-400">
-                      {currencySymbol}
-                      {(evaluation?.finalTotal ?? 0).toFixed(2)}
+                      {formatUsdPkr(evaluation?.finalTotal ?? 0, currencySymbol)}
                     </span>
                   </div>
                 </div>
@@ -909,7 +912,7 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
                 >
                   {submittingOrder
                     ? 'Processing & Locking Stock...'
-                    : `Submit Order — ${currencySymbol}${(evaluation?.finalTotal ?? 0).toFixed(2)}`}
+                    : `Submit Order — ${formatUsdPkr(evaluation?.finalTotal ?? 0, currencySymbol)}`}
                 </button>
               </div>
             </form>
