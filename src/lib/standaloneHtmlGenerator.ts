@@ -7,7 +7,7 @@ export function generateStandaloneStoreHtml(storeData: {
   const safeJson = JSON.stringify(storeData).replace(/<\//g, '<\\/');
   const storeName = storeData.settings?.storeName || 'OwnVerse Store';
   const tagline =
-    storeData.settings?.storeTagline || 'Official Minecraft Network Storefront';
+    storeData.settings?.storeTagline || 'Official OwnVerse Network Store';
 
   return `<!DOCTYPE html>
 <html lang="en" class="dark">
@@ -102,7 +102,7 @@ export function generateStandaloneStoreHtml(storeData: {
         <div class="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
           <div class="lg:col-span-7 space-y-5">
             <div id="hero-kicker" class="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-red-400">
-              OwnVerse Network · Season IV: Crimson Citadel
+              OwnVerse Network · Season 2
             </div>
             <h1 id="hero-title" class="font-display text-3xl sm:text-5xl font-extrabold tracking-tight text-white leading-[1.08]">
               Forge Your Dominion Across the OwnVerse Realm
