@@ -82,9 +82,9 @@ export function generateStandaloneStoreHtml(storeData: {
     </nav>
 
     <div class="flex items-center gap-2.5">
-      <button onclick="copyServerIp()" class="hidden sm:flex items-center gap-2 px-3 py-2 rounded-lg bg-[#181013] border border-[#2C181D] hover:border-red-500/40 text-xs font-mono text-zinc-200 cursor-pointer">
+      <button onclick="copyIpText('mc.ownverse.net', 'header-server-ip')" class="hidden sm:flex items-center gap-2 px-3 py-2 rounded-lg bg-[#181013] border border-[#2C181D] hover:border-red-500/40 text-xs font-mono text-zinc-200 cursor-pointer">
         <span class="w-2 h-2 rounded-full bg-red-500"></span>
-        <span id="header-server-ip">play.ownverse.mc</span>
+        <span id="header-server-ip">mc.ownverse.net</span>
       </button>
       <button onclick="toggleCart(true)" class="px-4 py-2 rounded-lg bg-[#DC2626] hover:bg-red-500 text-xs font-bold text-white transition flex items-center gap-2 cursor-pointer shadow-md shadow-red-950/50">
         <span>Cart (<span id="cart-count" class="font-mono">0</span>)</span>
@@ -114,9 +114,19 @@ export function generateStandaloneStoreHtml(storeData: {
               <a href="#catalog-grid" class="px-6 py-3 rounded-xl bg-[#DC2626] hover:bg-red-500 text-white font-bold text-sm transition shadow-lg shadow-red-950/60">
                 Explore Store Catalog
               </a>
-              <button onclick="copyServerIp()" class="px-4 py-3 rounded-xl bg-[#181013] hover:bg-[#241519] border border-[#2C181D] text-xs font-mono text-zinc-200 flex items-center gap-2 cursor-pointer">
-                <span>IP: <strong id="hero-ip" class="text-red-400">play.ownverse.mc</strong></span>
-                <span id="copy-ip-label" class="text-[11px] text-zinc-400">(Click to Copy)</span>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2">
+              <button onclick="copyIpText('mc.ownverse.net', 'hero-ip-java')" class="p-3 rounded-xl bg-[#181013] hover:bg-[#241519] border border-[#2C181D] text-left font-mono cursor-pointer">
+                <span class="block text-[10px] uppercase tracking-wider text-red-400 font-bold">Java Edition IP</span>
+                <strong id="hero-ip-java" class="text-xs text-white">mc.ownverse.net</strong>
+              </button>
+              <button onclick="copyIpText('play.ownverse.fun', 'hero-ip-bedrock')" class="p-3 rounded-xl bg-[#181013] hover:bg-[#241519] border border-[#2C181D] text-left font-mono cursor-pointer">
+                <span class="block text-[10px] uppercase tracking-wider text-amber-400 font-bold">Bedrock IP · Port 19132</span>
+                <strong id="hero-ip-bedrock" class="text-xs text-white">play.ownverse.fun</strong>
+              </button>
+              <button onclick="copyIpText('uae.ownverse.net', 'hero-ip-pk')" class="p-3 rounded-xl bg-[#181013] hover:bg-[#241519] border border-red-500/30 text-left font-mono cursor-pointer">
+                <span class="block text-[10px] uppercase tracking-wider text-red-400 font-bold">Pakistan Better Ping</span>
+                <strong id="hero-ip-pk" class="text-xs text-white">uae.ownverse.net</strong>
               </button>
             </div>
           </div>
@@ -259,8 +269,13 @@ export function generateStandaloneStoreHtml(storeData: {
   <!-- Footer -->
   <footer class="border-t border-[#2C181D] bg-[#090708] py-8 px-4 sm:px-8 mt-16">
     <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-zinc-500">
-      <div>
-        <strong id="footer-store-name" class="text-white">OwnVerse Store</strong> · Not affiliated with Mojang Studios or Microsoft Corporation.
+      <div class="space-y-1">
+        <div>
+          <strong id="footer-store-name" class="text-white">OwnVerse Store</strong> · Not affiliated with Mojang Studios or Microsoft Corporation.
+        </div>
+        <div class="font-mono text-[11px] text-zinc-400">
+          Java: <strong class="text-red-400">mc.ownverse.net</strong> · Bedrock: <strong class="text-amber-400">play.ownverse.fun</strong> (Port <strong class="text-amber-400">19132</strong>) · Pakistan Better Ping: <strong class="text-red-400">uae.ownverse.net</strong>
+        </div>
       </div>
       <div class="flex flex-wrap gap-4">
         <button onclick="switchView('lookup')" class="hover:text-white cursor-pointer">Order Lookup</button>
@@ -297,10 +312,12 @@ export function generateStandaloneStoreHtml(storeData: {
 
     function initStore() {
       const s = STORE_DATA.settings || {};
+      const javaIp = (s.serverIp && s.serverIp !== 'play.ownverse.mc') ? s.serverIp : 'mc.ownverse.net';
       document.getElementById('nav-store-name').textContent = s.storeName || 'OwnVerse Store';
       document.getElementById('footer-store-name').textContent = s.storeName || 'OwnVerse Store';
-      document.getElementById('header-server-ip').textContent = s.serverIp || 'play.ownverse.mc';
-      document.getElementById('hero-ip').textContent = s.serverIp || 'play.ownverse.mc';
+      document.getElementById('header-server-ip').textContent = javaIp;
+      const heroJavaEl = document.getElementById('hero-ip-java');
+      if (heroJavaEl) heroJavaEl.textContent = javaIp;
 
       if (s.heroConfig) {
         document.getElementById('hero-kicker').textContent = s.heroConfig.kicker || '';
@@ -678,13 +695,13 @@ export function generateStandaloneStoreHtml(storeData: {
       });
     }
 
-    function copyServerIp() {
-      const ip = STORE_DATA.settings?.serverIp || 'play.ownverse.mc';
+    function copyIpText(ip, elId) {
       navigator.clipboard?.writeText(ip);
-      const lbl = document.getElementById('copy-ip-label');
-      if (lbl) {
-        lbl.textContent = '(✓ Copied!)';
-        setTimeout(() => { lbl.textContent = '(Click to Copy)'; }, 2000);
+      const el = document.getElementById(elId);
+      if (el) {
+        const prev = el.textContent;
+        el.textContent = '✓ Copied: ' + ip;
+        setTimeout(() => { el.textContent = prev; }, 1800);
       }
     }
 

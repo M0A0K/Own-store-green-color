@@ -88,7 +88,7 @@ export default function App() {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [activePromoCode, setActivePromoCode] = useState<string>('');
   const [promoAppliedToast, setPromoAppliedToast] = useState<string | null>(null);
-  const [copiedIp, setCopiedIp] = useState(false);
+  const [copiedIpKey, setCopiedIpKey] = useState<string | null>(null);
   const [addedProductId, setAddedProductId] = useState<number | null>(null);
 
   const loadStoreData = useCallback(async () => {
@@ -322,11 +322,10 @@ export default function App() {
     setTimeout(() => setPromoAppliedToast(null), 3500);
   };
 
-  const handleCopyServerIp = () => {
-    const ip = serverStatus?.ip || settings?.serverIp || 'play.ownverse.mc';
-    navigator.clipboard.writeText(ip).catch(() => {});
-    setCopiedIp(true);
-    setTimeout(() => setCopiedIp(false), 2000);
+  const handleCopyIpValue = (value: string, key: string) => {
+    navigator.clipboard.writeText(value).catch(() => {});
+    setCopiedIpKey(key);
+    setTimeout(() => setCopiedIpKey((prev) => (prev === key ? null : prev)), 2000);
   };
 
   const allTags = useMemo(() => {
@@ -772,31 +771,120 @@ export default function App() {
                           </span>
                         </div>
 
-                        <div className="space-y-1.5">
+                        <div className="space-y-2.5">
                           <div className="text-[11px] text-zinc-400">
                             Connect via Java or Bedrock (1.20.4 – 1.21.x)
                           </div>
-                          <div className="flex items-center justify-between p-2.5 rounded-lg bg-[#090708] border border-[#2C181D]">
-                            <span className="font-mono text-xs sm:text-sm font-bold text-white select-all">
-                              {serverStatus?.ip || settings.serverIp}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={handleCopyServerIp}
-                              className="px-2.5 py-1 rounded bg-[#181013] border border-[#2C181D] hover:border-red-500/50 text-[11px] font-medium text-zinc-200 flex items-center gap-1 whitespace-nowrap cursor-pointer"
-                            >
-                              {copiedIp ? (
-                                <>
-                                  <Check className="w-3 h-3 text-red-400" />
-                                  <span>Copied IP</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Copy className="w-3 h-3" />
-                                  <span>Copy IP</span>
-                                </>
-                              )}
-                            </button>
+
+                          {/* Java Edition IP */}
+                          <div className="p-2.5 rounded-lg bg-[#090708] border border-[#2C181D] space-y-1">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-red-400">
+                                Java Edition IP
+                              </span>
+                              <span className="text-[10px] font-mono text-zinc-500">
+                                Default Port 25565
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-mono text-xs sm:text-sm font-bold text-white select-all">
+                                {settings.serverIp && settings.serverIp !== 'play.ownverse.mc'
+                                  ? settings.serverIp
+                                  : 'mc.ownverse.net'}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleCopyIpValue(
+                                    settings.serverIp && settings.serverIp !== 'play.ownverse.mc'
+                                      ? settings.serverIp
+                                      : 'mc.ownverse.net',
+                                    'java'
+                                  )
+                                }
+                                className="px-2.5 py-1 rounded bg-[#181013] border border-[#2C181D] hover:border-red-500/50 text-[11px] font-medium text-zinc-200 flex items-center gap-1 whitespace-nowrap cursor-pointer"
+                              >
+                                {copiedIpKey === 'java' ? (
+                                  <>
+                                    <Check className="w-3 h-3 text-red-400" />
+                                    <span>Copied</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="w-3 h-3" />
+                                    <span>Copy IP</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Bedrock Edition IP & Port */}
+                          <div className="p-2.5 rounded-lg bg-[#090708] border border-[#2C181D] space-y-1">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400">
+                                Bedrock Edition IP
+                              </span>
+                              <span className="text-[10px] font-mono font-bold text-amber-300">
+                                Port: 19132
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-mono text-xs sm:text-sm font-bold text-white select-all">
+                                play.ownverse.fun
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleCopyIpValue('play.ownverse.fun', 'bedrock')}
+                                className="px-2.5 py-1 rounded bg-[#181013] border border-[#2C181D] hover:border-red-500/50 text-[11px] font-medium text-zinc-200 flex items-center gap-1 whitespace-nowrap cursor-pointer"
+                              >
+                                {copiedIpKey === 'bedrock' ? (
+                                  <>
+                                    <Check className="w-3 h-3 text-red-400" />
+                                    <span>Copied</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="w-3 h-3" />
+                                    <span>Copy IP</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Pakistan Low-Ping Proxy IP */}
+                          <div className="p-2.5 rounded-lg bg-[#090708] border border-red-500/30 space-y-1">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-red-400">
+                                Pakistan · Better Ping IP
+                              </span>
+                              <span className="text-[10px] font-mono text-zinc-400">
+                                Low Latency Route
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-mono text-xs sm:text-sm font-bold text-white select-all">
+                                uae.ownverse.net
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleCopyIpValue('uae.ownverse.net', 'pk')}
+                                className="px-2.5 py-1 rounded bg-[#181013] border border-[#2C181D] hover:border-red-500/50 text-[11px] font-medium text-zinc-200 flex items-center gap-1 whitespace-nowrap cursor-pointer"
+                              >
+                                {copiedIpKey === 'pk' ? (
+                                  <>
+                                    <Check className="w-3 h-3 text-red-400" />
+                                    <span>Copied</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="w-3 h-3" />
+                                    <span>Copy IP</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
                           </div>
                         </div>
 
@@ -1243,12 +1331,19 @@ export default function App() {
       {/* Storefront Footer */}
       <footer className="bg-[#090708] border-t border-[#2C181D] py-10 px-4 sm:px-8 text-xs text-zinc-400">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-          <div className="space-y-1.5 max-w-md">
+          <div className="space-y-1.5 max-w-lg">
             <div
               className="text-sm font-bold text-white"
               style={{ fontFamily: 'var(--font-display), sans-serif' }}
             >
               {settings?.storeName || 'OwnVerse Store'}
+            </div>
+            <div className="text-[11px] font-mono text-zinc-300 flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span>Java: <strong className="text-red-400">mc.ownverse.net</strong></span>
+              <span aria-hidden="true">·</span>
+              <span>Bedrock: <strong className="text-amber-400">play.ownverse.fun</strong> (Port <strong className="text-amber-400">19132</strong>)</span>
+              <span aria-hidden="true">·</span>
+              <span>Pakistan Ping: <strong className="text-red-400">uae.ownverse.net</strong></span>
             </div>
             <p className="text-xs text-zinc-500 leading-relaxed">
               OwnVerse Network is not affiliated with Mojang Studios or Microsoft

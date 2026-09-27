@@ -114,7 +114,7 @@ export const storeSettings = pgTable('store_settings', {
   storeTagline: text('store_tagline').notNull().default('Official Minecraft Network Storefront'),
   logoUrl: text('logo_url').notNull(),
   faviconUrl: text('favicon_url').notNull().default('/favicon.svg'),
-  serverIp: text('server_ip').notNull().default('play.ownverse.mc'),
+  serverIp: text('server_ip').notNull().default('mc.ownverse.net'),
   serverPort: integer('server_port').notNull().default(25565),
   serverStatusMode: text('server_status_mode').notNull().default('live_with_fallback'),
   manualServerOnline: boolean('manual_server_online').notNull().default(true),

@@ -157,7 +157,10 @@ If you entered a misspelled Minecraft username during checkout and the package h
 - **Manual Bank / Receipt Verification**: Verified by our billing team within **15 to 45 minutes** during active hours.
 
 ### 2. Receiving Your Items In-Game
-Make sure you are logged into \`play.ownverse.mc\` with sufficient inventory space, or use \`/claim\` in any hub or survival realm to retrieve queued kit containers.`,
+Make sure you are logged into the server with sufficient inventory space, or use \`/claim\` in any hub or survival realm to retrieve queued kit containers:
+- **Java Edition IP**: \`mc.ownverse.net\`
+- **Bedrock Edition IP**: \`play.ownverse.fun\` (Port: \`19132\`)
+- **Pakistan (Better Ping IP)**: \`uae.ownverse.net\``,
   supportInformation: `### Need Assistance With an Order?
 Our billing specialists and automated delivery monitors operate around the clock.
 
@@ -187,9 +190,9 @@ export const DEFAULT_FAQS: FaqItem[] = [
   },
   {
     id: 'faq-3',
-    question: 'Does OwnVerse support both Minecraft Java and Bedrock players?',
+    question: 'Does OwnVerse support both Minecraft Java and Bedrock players, and what are the IPs?',
     answer:
-      'Yes. Java Edition players should enter their standard case-sensitive username. Bedrock Edition players connecting via Geyser should include their prefix (for example, .PlayerName) exactly as it appears in-game tab list.',
+      'Yes! Java Edition players can connect using mc.ownverse.net (or uae.ownverse.net for better ping in Pakistan). Bedrock Edition players can connect using IP play.ownverse.fun and Port 19132, and should include their Geyser prefix (e.g. .PlayerName) during checkout.',
     category: 'Compatibility',
     sortOrder: 3,
     visible: true,
@@ -257,7 +260,7 @@ function initMemoryStoreDefaults() {
     storeTagline: 'Official Minecraft Network Storefront',
     logoUrl: '',
     faviconUrl: '/favicon.svg',
-    serverIp: process.env.MINECRAFT_SERVER_IP || 'play.ownverse.mc',
+    serverIp: process.env.MINECRAFT_SERVER_IP || 'mc.ownverse.net',
     serverPort: 25565,
     serverStatusMode: 'live_with_fallback',
     manualServerOnline: true,
@@ -444,7 +447,7 @@ async function ensurePostgresTablesExist() {
       store_tagline TEXT NOT NULL DEFAULT 'Official Minecraft Network Storefront',
       logo_url TEXT NOT NULL,
       favicon_url TEXT NOT NULL DEFAULT '/favicon.svg',
-      server_ip TEXT NOT NULL DEFAULT 'play.ownverse.mc',
+      server_ip TEXT NOT NULL DEFAULT 'mc.ownverse.net',
       server_port INTEGER NOT NULL DEFAULT 25565,
       server_status_mode TEXT NOT NULL DEFAULT 'live_with_fallback',
       manual_server_online BOOLEAN NOT NULL DEFAULT true,
@@ -626,47 +629,62 @@ export async function ensureStoreSeeded(): Promise<void> {
           current.logoUrl?.startsWith('/src/assets/') ||
           current.heroConfig?.bannerImage?.startsWith('/src/assets/');
 
-        if (needsRedThemeMigration) {
+        const needsIpMigration = current.serverIp === 'play.ownverse.mc';
+
+        if (needsRedThemeMigration || needsIpMigration) {
           await db.update(storeSettings).set({
-            logoUrl: current.logoUrl?.startsWith('/src/assets/') ? '' : current.logoUrl,
-            themeConfig: DEFAULT_THEME_CONFIG,
-            heroConfig: {
-              ...current.heroConfig,
-              bannerImage: current.heroConfig?.bannerImage?.startsWith('/src/assets/')
-                ? ''
-                : current.heroConfig?.bannerImage || '',
-            },
-            promoBannerConfig: {
-              ...current.promoBannerConfig,
-              bgColor: '#1F090D',
-              textColor: '#FFE4E6',
-              accentColor: '#EF4444',
-            },
+            ...(needsIpMigration
+              ? {
+                  serverIp: 'mc.ownverse.net',
+                  policiesConfig: DEFAULT_POLICIES,
+                  faqItems: DEFAULT_FAQS,
+                }
+              : {}),
+            ...(needsRedThemeMigration
+              ? {
+                  logoUrl: current.logoUrl?.startsWith('/src/assets/') ? '' : current.logoUrl,
+                  themeConfig: DEFAULT_THEME_CONFIG,
+                  heroConfig: {
+                    ...current.heroConfig,
+                    bannerImage: current.heroConfig?.bannerImage?.startsWith('/src/assets/')
+                      ? ''
+                      : current.heroConfig?.bannerImage || '',
+                  },
+                  promoBannerConfig: {
+                    ...current.promoBannerConfig,
+                    bgColor: '#1F090D',
+                    textColor: '#FFE4E6',
+                    accentColor: '#EF4444',
+                  },
+                }
+              : {}),
           });
 
-          const allProds = await db.select().from(products);
-          for (const p of allProds) {
-            const cleanProdImg = p.productImageUrl?.startsWith('/src/assets/')
-              ? ''
-              : p.productImageUrl;
-            const cleanKitImg = p.kitPreviewImageUrl?.startsWith('/src/assets/')
-              ? ''
-              : p.kitPreviewImageUrl;
-            const cleanLogoImg = p.customLogoUrl?.startsWith('/src/assets/')
-              ? null
-              : p.customLogoUrl;
+          if (needsRedThemeMigration) {
+            const allProds = await db.select().from(products);
+            for (const p of allProds) {
+              const cleanProdImg = p.productImageUrl?.startsWith('/src/assets/')
+                ? ''
+                : p.productImageUrl;
+              const cleanKitImg = p.kitPreviewImageUrl?.startsWith('/src/assets/')
+                ? ''
+                : p.kitPreviewImageUrl;
+              const cleanLogoImg = p.customLogoUrl?.startsWith('/src/assets/')
+                ? null
+                : p.customLogoUrl;
 
-            await db
-              .update(products)
-              .set({
-                productImageUrl: cleanProdImg,
-                kitPreviewImageUrl: cleanKitImg,
-                customLogoUrl: cleanLogoImg,
-                badgeColor: p.badgeColor === '#10B981' ? '#EF4444' : p.badgeColor,
-                cardAccentColor: p.cardAccentColor === '#10B981' ? '#EF4444' : p.cardAccentColor,
-                buttonColor: p.buttonColor === '#10B981' ? '#DC2626' : p.buttonColor,
-              })
-              .where(eq(products.id, p.id));
+              await db
+                .update(products)
+                .set({
+                  productImageUrl: cleanProdImg,
+                  kitPreviewImageUrl: cleanKitImg,
+                  customLogoUrl: cleanLogoImg,
+                  badgeColor: p.badgeColor === '#10B981' ? '#EF4444' : p.badgeColor,
+                  cardAccentColor: p.cardAccentColor === '#10B981' ? '#EF4444' : p.cardAccentColor,
+                  buttonColor: p.buttonColor === '#10B981' ? '#DC2626' : p.buttonColor,
+                })
+                .where(eq(products.id, p.id));
+            }
           }
         }
 
@@ -682,7 +700,7 @@ export async function ensureStoreSeeded(): Promise<void> {
         storeTagline: 'Official Minecraft Network Storefront',
         logoUrl: '',
         faviconUrl: '/favicon.svg',
-        serverIp: process.env.MINECRAFT_SERVER_IP || 'play.ownverse.mc',
+        serverIp: process.env.MINECRAFT_SERVER_IP || 'mc.ownverse.net',
         serverPort: 25565,
         serverStatusMode: 'live_with_fallback',
         manualServerOnline: true,
