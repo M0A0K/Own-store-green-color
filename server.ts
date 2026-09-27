@@ -1,4 +1,5 @@
-import express, { Request, Response, NextFunction } from 'express';
+import express, { type Request, type Response, type NextFunction } from 'express';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import * as dotenv from 'dotenv';
@@ -35,13 +36,14 @@ import {
   optionalAuth,
   requireAdmin,
   createAdminSessionToken,
-  AuthRequest,
+  type AuthRequest,
 } from './src/middleware/auth.ts';
 import {
   sendNewOrderDiscordWebhook,
   sendOrderStatusUpdateDiscordWebhook,
 } from './src/services/discord.ts';
 import { fetchMinecraftServerStatus } from './src/services/minecraftStatus.ts';
+import { generateStandaloneStoreHtml } from './src/lib/standaloneHtmlGenerator.ts';
 
 dotenv.config();
 
@@ -645,20 +647,40 @@ app.post('/api/admin/backup/import', requireAdmin, async (req: AuthRequest, res:
   }
 });
 
+app.get('/api/store/export-html', async (_req: Request, res: Response) => {
+  try {
+    const storeData = await getPublicStoreBootstrap();
+    const html = generateStandaloneStoreHtml(storeData);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="ownverse-store-standalone.html"'
+    );
+    res.send(html);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || 'Failed to generate HTML export.' });
+  }
+});
+
 async function startServer() {
-  if (process.env.NODE_ENV !== 'production') {
+  const distPath = path.join(__dirname, 'dist');
+  const distIndexPath = path.join(distPath, 'index.html');
+  const isProdEnv =
+    process.env.NODE_ENV === 'production' ||
+    Boolean(process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_PROJECT_ID);
+
+  if (isProdEnv && fs.existsSync(distIndexPath)) {
+    app.use(express.static(distPath));
+    app.get('*', (_req: Request, res: Response) => {
+      res.sendFile(distIndexPath);
+    });
+  } else {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
     });
     app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(__dirname, 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (_req: Request, res: Response) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
   }
 
   app.listen(PORT, '0.0.0.0', () => {

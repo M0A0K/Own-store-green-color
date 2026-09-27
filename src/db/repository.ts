@@ -9,9 +9,13 @@ import {
   promoCodes,
   orders,
   mediaAssets,
-  OrderLineItem,
+  type OrderLineItem,
 } from './schema.ts';
-import { ensureStoreSeeded } from './seed.ts';
+import {
+  ensureStoreSeeded,
+  isMemoryFallbackActive,
+  memoryStore,
+} from './seed.ts';
 
 function roundCurrency(val: number): number {
   return Math.round((val + Number.EPSILON) * 100) / 100;
@@ -45,8 +49,29 @@ export async function getOrCreateUser(
   displayName: string | null = null
 ) {
   try {
+    await ensureStoreSeeded();
     const adminEmail = (process.env.ADMIN_EMAIL || 'makkhera1@gmail.com').toLowerCase();
     const isAdminEmail = email.toLowerCase() === adminEmail;
+
+    if (isMemoryFallbackActive()) {
+      let existing = memoryStore.users.find((u) => u.uid === uid);
+      if (existing) {
+        existing.email = email;
+        existing.displayName = displayName;
+        if (isAdminEmail) existing.role = 'admin';
+        return existing;
+      }
+      const created = {
+        id: memoryStore.users.length + 1,
+        uid,
+        email,
+        displayName,
+        role: isAdminEmail ? 'admin' : 'customer',
+        createdAt: new Date(),
+      };
+      memoryStore.users.push(created);
+      return created;
+    }
 
     const result = await db
       .insert(users)
@@ -75,6 +100,16 @@ export async function getOrCreateUser(
 
 export async function promoteUserToAdmin(uid: string) {
   try {
+    await ensureStoreSeeded();
+    if (isMemoryFallbackActive()) {
+      const user = memoryStore.users.find((u) => u.uid === uid);
+      if (user) {
+        user.role = 'admin';
+        return user;
+      }
+      return null;
+    }
+
     const updated = await db
       .update(users)
       .set({ role: 'admin' })
@@ -179,14 +214,33 @@ export async function getPublicStoreBootstrap() {
 
     await ensureStoreSeeded();
 
-    const [settingsRows, allSections, allProducts, allSales] = await Promise.all([
-      db.select().from(storeSettings).limit(1),
-      db.select().from(sections).orderBy(asc(sections.displayOrder), asc(sections.id)),
-      db.select().from(products).orderBy(asc(products.displayOrder), asc(products.id)),
-      db.select().from(sales).orderBy(desc(sales.id)),
-    ]);
+    let settings: any;
+    let allSections: any[];
+    let allProducts: any[];
+    let allSales: any[];
 
-    const settings = settingsRows[0];
+    if (isMemoryFallbackActive()) {
+      settings = memoryStore.settings;
+      allSections = [...memoryStore.sections].sort(
+        (a, b) => (a.displayOrder || 0) - (b.displayOrder || 0) || a.id - b.id
+      );
+      allProducts = [...memoryStore.products].sort(
+        (a, b) => (a.displayOrder || 0) - (b.displayOrder || 0) || a.id - b.id
+      );
+      allSales = [...memoryStore.sales].sort((a, b) => b.id - a.id);
+    } else {
+      const [settingsRows, secRows, prodRows, saleRows] = await Promise.all([
+        db.select().from(storeSettings).limit(1),
+        db.select().from(sections).orderBy(asc(sections.displayOrder), asc(sections.id)),
+        db.select().from(products).orderBy(asc(products.displayOrder), asc(products.id)),
+        db.select().from(sales).orderBy(desc(sales.id)),
+      ]);
+      settings = settingsRows[0];
+      allSections = secRows;
+      allProducts = prodRows;
+      allSales = saleRows;
+    }
+
     const now = new Date();
     const activeSales = allSales.filter((s) => isSaleCurrentlyActive(s, now));
 
@@ -208,7 +262,7 @@ export async function getPublicStoreBootstrap() {
 
     storeBootstrapCache = {
       data: payload,
-      expiresAt: Date.now() + 20_000, // 20s fast cache, immediately invalidated on any write
+      expiresAt: Date.now() + 20_000,
     };
 
     return payload;
@@ -224,35 +278,65 @@ export async function getAdminFullState() {
   try {
     await ensureStoreSeeded();
 
-    const [
-      settingsRows,
-      allSections,
-      allProducts,
-      allSales,
-      allPromoCodes,
-      allOrders,
-      allMediaMeta,
-    ] = await Promise.all([
-      db.select().from(storeSettings).limit(1),
-      db.select().from(sections).orderBy(asc(sections.displayOrder), asc(sections.id)),
-      db.select().from(products).orderBy(asc(products.displayOrder), asc(products.id)),
-      db.select().from(sales).orderBy(desc(sales.id)),
-      db.select().from(promoCodes).orderBy(desc(promoCodes.id)),
-      db.select().from(orders).orderBy(desc(orders.createdAt), desc(orders.id)),
-      // Select only lightweight metadata columns (never load multi-MB dataUri blobs into list view)
-      db
-        .select({
-          id: mediaAssets.id,
-          filename: mediaAssets.filename,
-          mimeType: mediaAssets.mimeType,
-          sizeBytes: mediaAssets.sizeBytes,
-          url: mediaAssets.url,
-          category: mediaAssets.category,
-          createdAt: mediaAssets.createdAt,
-        })
-        .from(mediaAssets)
-        .orderBy(desc(mediaAssets.createdAt)),
-    ]);
+    let settingsRow: any;
+    let allSections: any[];
+    let allProducts: any[];
+    let allSales: any[];
+    let allPromoCodes: any[];
+    let allOrders: any[];
+    let allMediaMeta: any[];
+
+    if (isMemoryFallbackActive()) {
+      settingsRow = memoryStore.settings;
+      allSections = [...memoryStore.sections].sort(
+        (a, b) => (a.displayOrder || 0) - (b.displayOrder || 0) || a.id - b.id
+      );
+      allProducts = [...memoryStore.products].sort(
+        (a, b) => (a.displayOrder || 0) - (b.displayOrder || 0) || a.id - b.id
+      );
+      allSales = [...memoryStore.sales].sort((a, b) => b.id - a.id);
+      allPromoCodes = [...memoryStore.promoCodes].sort((a, b) => b.id - a.id);
+      allOrders = [...memoryStore.orders].sort((a, b) => b.id - a.id);
+      allMediaMeta = memoryStore.mediaAssets.map(
+        ({ dataUri: _d, ...meta }: any) => meta
+      );
+    } else {
+      const [
+        settingsRows,
+        secRows,
+        prodRows,
+        saleRows,
+        promoRows,
+        orderRows,
+        mediaRows,
+      ] = await Promise.all([
+        db.select().from(storeSettings).limit(1),
+        db.select().from(sections).orderBy(asc(sections.displayOrder), asc(sections.id)),
+        db.select().from(products).orderBy(asc(products.displayOrder), asc(products.id)),
+        db.select().from(sales).orderBy(desc(sales.id)),
+        db.select().from(promoCodes).orderBy(desc(promoCodes.id)),
+        db.select().from(orders).orderBy(desc(orders.createdAt), desc(orders.id)),
+        db
+          .select({
+            id: mediaAssets.id,
+            filename: mediaAssets.filename,
+            mimeType: mediaAssets.mimeType,
+            sizeBytes: mediaAssets.sizeBytes,
+            url: mediaAssets.url,
+            category: mediaAssets.category,
+            createdAt: mediaAssets.createdAt,
+          })
+          .from(mediaAssets)
+          .orderBy(desc(mediaAssets.createdAt)),
+      ]);
+      settingsRow = settingsRows[0];
+      allSections = secRows;
+      allProducts = prodRows;
+      allSales = saleRows;
+      allPromoCodes = promoRows;
+      allOrders = orderRows;
+      allMediaMeta = mediaRows;
+    }
 
     const now = new Date();
     const activeSales = allSales.filter((s) => isSaleCurrentlyActive(s, now));
@@ -260,7 +344,7 @@ export async function getAdminFullState() {
       computeEffectiveProductPricing(p, activeSales)
     );
 
-    const { adminPasswordHash: _ignored, ...safeSettings } = settingsRows[0];
+    const { adminPasswordHash: _ignored, ...safeSettings } = settingsRow;
 
     return {
       settings: safeSettings,
@@ -309,12 +393,24 @@ export async function evaluateCartAndPricing(
 
     const normalizedCode = (promoCodeInput || '').trim().toUpperCase();
 
-    const [allSections, allProducts, allSales, allPromoCodes] = await Promise.all([
-      db.select().from(sections),
-      db.select().from(products),
-      db.select().from(sales),
-      normalizedCode ? db.select().from(promoCodes) : Promise.resolve([]),
-    ]);
+    let allSections: any[];
+    let allProducts: any[];
+    let allSales: any[];
+    let allPromoCodes: any[];
+
+    if (isMemoryFallbackActive()) {
+      allSections = memoryStore.sections;
+      allProducts = memoryStore.products;
+      allSales = memoryStore.sales;
+      allPromoCodes = normalizedCode ? memoryStore.promoCodes : [];
+    } else {
+      [allSections, allProducts, allSales, allPromoCodes] = await Promise.all([
+        db.select().from(sections),
+        db.select().from(products),
+        db.select().from(sales),
+        normalizedCode ? db.select().from(promoCodes) : Promise.resolve([]),
+      ]);
+    }
 
     const now = new Date();
     const activeSales = allSales.filter((s) => isSaleCurrentlyActive(s, now));
@@ -409,13 +505,20 @@ export async function evaluateCartAndPricing(
       } else {
         if (minecraftUsername && minecraftUsername.trim()) {
           const cleanMc = minecraftUsername.trim().toLowerCase();
-          const promoOrders = await db
-            .select({
-              status: orders.status,
-              minecraftUsername: orders.minecraftUsername,
-            })
-            .from(orders)
-            .where(eq(orders.promoCode, matchedPromo.code));
+          let promoOrders: { status: string; minecraftUsername: string }[] = [];
+          if (isMemoryFallbackActive()) {
+            promoOrders = memoryStore.orders.filter(
+              (o) => o.promoCode === matchedPromo.code
+            );
+          } else {
+            promoOrders = await db
+              .select({
+                status: orders.status,
+                minecraftUsername: orders.minecraftUsername,
+              })
+              .from(orders)
+              .where(eq(orders.promoCode, matchedPromo.code));
+          }
 
           const customerUses = promoOrders.filter(
             (o) =>
@@ -517,13 +620,20 @@ export async function createOrderAtomic(input: CreateOrderInput) {
     await ensureStoreSeeded();
 
     if (input.idempotencyKey) {
-      const existing = await db
-        .select()
-        .from(orders)
-        .where(eq(orders.idempotencyKey, input.idempotencyKey))
-        .limit(1);
-      if (existing.length > 0) {
-        return existing[0];
+      if (isMemoryFallbackActive()) {
+        const found = memoryStore.orders.find(
+          (o) => o.idempotencyKey === input.idempotencyKey
+        );
+        if (found) return found;
+      } else {
+        const existing = await db
+          .select()
+          .from(orders)
+          .where(eq(orders.idempotencyKey, input.idempotencyKey))
+          .limit(1);
+        if (existing.length > 0) {
+          return existing[0];
+        }
       }
     }
 
@@ -543,6 +653,53 @@ export async function createOrderAtomic(input: CreateOrderInput) {
 
     if (input.promoCode && input.promoCode.trim() && evaluation.promoError) {
       throw new Error(evaluation.promoError);
+    }
+
+    if (isMemoryFallbackActive()) {
+      for (const item of evaluation.items) {
+        const prod = memoryStore.products.find((p) => p.id === item.productId);
+        if (prod) {
+          if (prod.stockType === 'limited') {
+            prod.stockQuantity = Math.max(0, (prod.stockQuantity ?? 0) - item.quantity);
+          }
+          prod.totalSold = (prod.totalSold || 0) + item.quantity;
+        }
+      }
+      if (evaluation.promoCodeApplied) {
+        const promo = memoryStore.promoCodes.find(
+          (c) => c.code === evaluation.promoCodeApplied
+        );
+        if (promo) promo.currentUses = (promo.currentUses || 0) + 1;
+      }
+      const randomDigits = Math.floor(100000 + Math.random() * 900000);
+      const invoiceId = `OV-2026-${randomDigits}`;
+      const newOrder = {
+        id: memoryStore.orders.length + 1,
+        invoiceId,
+        idempotencyKey: input.idempotencyKey || `${invoiceId}-${Date.now()}`,
+        userUid: input.userUid || null,
+        minecraftUsername: input.minecraftUsername.trim(),
+        discordUsername: input.discordUsername.trim(),
+        items: evaluation.items,
+        subtotalOriginal: evaluation.subtotalOriginal,
+        saleDiscountTotal: evaluation.saleDiscountTotal,
+        promoCode: evaluation.promoCodeApplied,
+        promoDiscountTotal: evaluation.promoDiscountTotal,
+        finalTotal: evaluation.finalTotal,
+        paymentMethod: input.paymentMethod.trim(),
+        paymentReference: input.paymentReference.trim(),
+        receiptImageUrl: input.receiptImageUrl || null,
+        customerNotes: input.customerNotes?.trim() || null,
+        adminNotes: null,
+        status: 'Pending',
+        stockDeducted: true,
+        discordNotified: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      memoryStore.orders.unshift(newOrder);
+      invalidateStoreCache();
+      return newOrder;
     }
 
     const createdOrder = await db.transaction(async (tx) => {
@@ -655,6 +812,18 @@ export async function updateOrderStatusAndNotes(
   adminNotes?: string
 ) {
   try {
+    await ensureStoreSeeded();
+    if (isMemoryFallbackActive()) {
+      const existing = memoryStore.orders.find((o) => o.id === orderId);
+      if (!existing) throw new Error('Order not found.');
+      const previousStatus = existing.status;
+      existing.status = newStatus;
+      if (adminNotes !== undefined) existing.adminNotes = adminNotes;
+      existing.updatedAt = new Date();
+      invalidateStoreCache();
+      return { updatedOrder: existing, previousStatus };
+    }
+
     const result = await db.transaction(async (tx) => {
       const existingRows = await tx
         .select()
@@ -742,6 +911,12 @@ export async function updateOrderStatusAndNotes(
 
 export async function markOrderDiscordNotified(orderId: number) {
   try {
+    await ensureStoreSeeded();
+    if (isMemoryFallbackActive()) {
+      const found = memoryStore.orders.find((o) => o.id === orderId);
+      if (found) found.discordNotified = true;
+      return;
+    }
     await db
       .update(orders)
       .set({ discordNotified: true })
@@ -757,13 +932,20 @@ export async function lookupCustomerOrder(invoiceId: string, usernameVerify: str
     const cleanInvoice = invoiceId.trim().toUpperCase();
     const cleanUser = usernameVerify.trim().toLowerCase();
 
-    const rows = await db
-      .select()
-      .from(orders)
-      .where(eq(orders.invoiceId, cleanInvoice))
-      .limit(1);
+    let order: any;
+    if (isMemoryFallbackActive()) {
+      order = memoryStore.orders.find(
+        (o) => String(o.invoiceId).toUpperCase() === cleanInvoice
+      );
+    } else {
+      const rows = await db
+        .select()
+        .from(orders)
+        .where(eq(orders.invoiceId, cleanInvoice))
+        .limit(1);
+      order = rows[0];
+    }
 
-    const order = rows[0];
     if (!order) return null;
 
     const matchesMinecraft = order.minecraftUsername.toLowerCase() === cleanUser;
@@ -804,11 +986,21 @@ export async function getStoreAnalytics(days = 30) {
   try {
     await ensureStoreSeeded();
 
-    const [allOrders, allProducts, allPromos] = await Promise.all([
-      db.select().from(orders).orderBy(desc(orders.createdAt)),
-      db.select().from(products),
-      db.select().from(promoCodes),
-    ]);
+    let allOrders: any[];
+    let allProducts: any[];
+    let allPromos: any[];
+
+    if (isMemoryFallbackActive()) {
+      allOrders = memoryStore.orders;
+      allProducts = memoryStore.products;
+      allPromos = memoryStore.promoCodes;
+    } else {
+      [allOrders, allProducts, allPromos] = await Promise.all([
+        db.select().from(orders).orderBy(desc(orders.createdAt)),
+        db.select().from(products),
+        db.select().from(promoCodes),
+      ]);
+    }
 
     const cutoff =
       days > 0 ? new Date(Date.now() - days * 24 * 60 * 60 * 1000) : new Date(0);
@@ -914,6 +1106,24 @@ export async function saveMediaAsset(payload: {
   category: string;
 }) {
   try {
+    await ensureStoreSeeded();
+    if (isMemoryFallbackActive()) {
+      const id = memoryStore.mediaAssets.length + 1;
+      const item = {
+        id,
+        filename: payload.filename,
+        mimeType: payload.mimeType,
+        sizeBytes: payload.sizeBytes,
+        url: `/api/media/${id}`,
+        dataUri: payload.dataUri,
+        category: payload.category,
+        createdAt: new Date(),
+      };
+      memoryStore.mediaAssets.unshift(item);
+      mediaAssetCache.set(id, item);
+      return item;
+    }
+
     const inserted = await db
       .insert(mediaAssets)
       .values({
@@ -952,6 +1162,11 @@ export async function getMediaAssetById(id: number) {
     const cached = mediaAssetCache.get(id);
     if (cached) return cached;
 
+    await ensureStoreSeeded();
+    if (isMemoryFallbackActive()) {
+      return memoryStore.mediaAssets.find((m) => m.id === id) || null;
+    }
+
     const rows = await db
       .select()
       .from(mediaAssets)
@@ -975,6 +1190,24 @@ export async function getMediaAssetById(id: number) {
 
 export async function exportStoreBackupData() {
   try {
+    await ensureStoreSeeded();
+    if (isMemoryFallbackActive()) {
+      const { adminPasswordHash: _h, ...safeSettings } = memoryStore.settings;
+      return {
+        exportedAt: new Date().toISOString(),
+        version: '1.0.0',
+        store: 'OwnVerse Store',
+        data: {
+          storeSettings: [safeSettings],
+          sections: memoryStore.sections,
+          products: memoryStore.products,
+          sales: memoryStore.sales,
+          promoCodes: memoryStore.promoCodes,
+          orders: memoryStore.orders,
+        },
+      };
+    }
+
     const [settingsRows, allSections, allProducts, allSales, allPromos, allOrders] =
       await Promise.all([
         db.select().from(storeSettings),

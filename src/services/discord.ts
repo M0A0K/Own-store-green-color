@@ -1,4 +1,4 @@
-import { OrderLineItem } from '../db/schema.ts';
+import type { OrderLineItem } from '../db/schema.ts';
 
 export interface DiscordOrderPayload {
   invoiceId: string;

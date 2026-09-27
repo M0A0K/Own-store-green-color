@@ -9,7 +9,11 @@ import {
   mediaAssets,
 } from './schema.ts';
 import { hashPassword, verifyPassword } from '../middleware/auth.ts';
-import { ensureStoreSeeded } from './seed.ts';
+import {
+  ensureStoreSeeded,
+  isMemoryFallbackActive,
+  memoryStore,
+} from './seed.ts';
 import { invalidateStoreCache, invalidateMediaCache } from './repository.ts';
 
 function slugify(input: string): string {
@@ -26,17 +30,16 @@ export async function verifyAdminUnlockCredential(accessKey: string): Promise<bo
     const trimmed = accessKey.trim();
     if (!trimmed) return false;
 
-    const rows = await db.select().from(storeSettings).limit(1);
-    const settings = rows[0];
+    const settings = isMemoryFallbackActive()
+      ? memoryStore.settings
+      : (await db.select().from(storeSettings).limit(1))[0];
 
-    // Primary check: verify against scrypt-hashed password in PostgreSQL
     if (settings?.adminPasswordHash) {
       if (verifyPassword(trimmed, settings.adminPasswordHash)) {
         return true;
       }
     }
 
-    // Optional explicit environment override if configured by server operator
     if (process.env.ADMIN_ACCESS_KEY && trimmed === process.env.ADMIN_ACCESS_KEY.trim()) {
       return true;
     }
@@ -51,8 +54,10 @@ export async function verifyAdminUnlockCredential(accessKey: string): Promise<bo
 export async function updateStoreSettingsData(payload: Record<string, any>) {
   try {
     await ensureStoreSeeded();
-    const rows = await db.select().from(storeSettings).limit(1);
-    const current = rows[0];
+    const current = isMemoryFallbackActive()
+      ? memoryStore.settings
+      : (await db.select().from(storeSettings).limit(1))[0];
+
     if (!current) throw new Error('Store settings row missing.');
 
     const updateFields: Partial<typeof storeSettings.$inferInsert> = {
@@ -97,6 +102,13 @@ export async function updateStoreSettingsData(payload: Record<string, any>) {
       updateFields.adminPasswordHash = hashPassword(payload.newAdminPassword.trim());
     }
 
+    if (isMemoryFallbackActive()) {
+      memoryStore.settings = { ...memoryStore.settings, ...updateFields };
+      invalidateStoreCache();
+      const { adminPasswordHash: _h, ...safe } = memoryStore.settings;
+      return safe;
+    }
+
     const updated = await db
       .update(storeSettings)
       .set(updateFields)
@@ -114,6 +126,7 @@ export async function updateStoreSettingsData(payload: Record<string, any>) {
 
 export async function upsertSectionData(payload: Record<string, any>) {
   try {
+    await ensureStoreSeeded();
     const name = String(payload.name || '').trim();
     if (!name) throw new Error('Section name is required.');
     const slug = slugify(payload.slug || name) || `section-${Date.now()}`;
@@ -129,6 +142,27 @@ export async function upsertSectionData(payload: Record<string, any>) {
       visible: payload.visible !== undefined ? Boolean(payload.visible) : true,
       updatedAt: new Date(),
     };
+
+    if (isMemoryFallbackActive()) {
+      let result;
+      if (payload.id) {
+        const idx = memoryStore.sections.findIndex((s) => s.id === Number(payload.id));
+        if (idx !== -1) {
+          memoryStore.sections[idx] = { ...memoryStore.sections[idx], ...values };
+          result = memoryStore.sections[idx];
+        }
+      }
+      if (!result) {
+        result = {
+          id: Date.now(),
+          ...values,
+          createdAt: new Date(),
+        };
+        memoryStore.sections.push(result);
+      }
+      invalidateStoreCache();
+      return result;
+    }
 
     let result;
     if (payload.id) {
@@ -155,6 +189,19 @@ export async function upsertSectionData(payload: Record<string, any>) {
 
 export async function reorderSectionsData(orderedIds: number[]) {
   try {
+    await ensureStoreSeeded();
+    if (isMemoryFallbackActive()) {
+      for (let idx = 0; idx < orderedIds.length; idx++) {
+        const sec = memoryStore.sections.find((s) => s.id === Number(orderedIds[idx]));
+        if (sec) {
+          sec.displayOrder = idx + 1;
+          sec.updatedAt = new Date();
+        }
+      }
+      invalidateStoreCache();
+      return true;
+    }
+
     await db.transaction(async (tx) => {
       for (let idx = 0; idx < orderedIds.length; idx++) {
         await tx
@@ -173,6 +220,12 @@ export async function reorderSectionsData(orderedIds: number[]) {
 
 export async function deleteSectionData(id: number) {
   try {
+    await ensureStoreSeeded();
+    if (isMemoryFallbackActive()) {
+      memoryStore.sections = memoryStore.sections.filter((s) => s.id !== id);
+      invalidateStoreCache();
+      return true;
+    }
     await db.delete(sections).where(eq(sections.id, id));
     invalidateStoreCache();
     return true;
@@ -184,6 +237,7 @@ export async function deleteSectionData(id: number) {
 
 export async function upsertProductData(payload: Record<string, any>) {
   try {
+    await ensureStoreSeeded();
     const name = String(payload.name || '').trim();
     if (!name) throw new Error('Product name is required.');
 
@@ -263,6 +317,28 @@ export async function upsertProductData(payload: Record<string, any>) {
       updatedAt: new Date(),
     };
 
+    if (isMemoryFallbackActive()) {
+      let result;
+      if (payload.id) {
+        const idx = memoryStore.products.findIndex((p) => p.id === Number(payload.id));
+        if (idx !== -1) {
+          memoryStore.products[idx] = { ...memoryStore.products[idx], ...values };
+          result = memoryStore.products[idx];
+        }
+      }
+      if (!result) {
+        result = {
+          id: Date.now(),
+          totalSold: 0,
+          ...values,
+          createdAt: new Date(),
+        };
+        memoryStore.products.push(result);
+      }
+      invalidateStoreCache();
+      return result;
+    }
+
     let result;
     if (payload.id) {
       const updated = await db
@@ -288,6 +364,12 @@ export async function upsertProductData(payload: Record<string, any>) {
 
 export async function deleteProductData(id: number) {
   try {
+    await ensureStoreSeeded();
+    if (isMemoryFallbackActive()) {
+      memoryStore.products = memoryStore.products.filter((p) => p.id !== id);
+      invalidateStoreCache();
+      return true;
+    }
     await db.delete(products).where(eq(products.id, id));
     invalidateStoreCache();
     return true;
@@ -299,6 +381,13 @@ export async function deleteProductData(id: number) {
 
 export async function deleteMediaAssetData(id: number) {
   try {
+    await ensureStoreSeeded();
+    if (isMemoryFallbackActive()) {
+      memoryStore.mediaAssets = memoryStore.mediaAssets.filter((m) => m.id !== id);
+      invalidateMediaCache(id);
+      invalidateStoreCache();
+      return true;
+    }
     await db.delete(mediaAssets).where(eq(mediaAssets.id, id));
     invalidateMediaCache(id);
     invalidateStoreCache();
@@ -311,6 +400,7 @@ export async function deleteMediaAssetData(id: number) {
 
 export async function upsertSaleData(payload: Record<string, any>) {
   try {
+    await ensureStoreSeeded();
     const title = String(payload.title || '').trim();
     if (!title) throw new Error('Sale title is required.');
 
@@ -331,6 +421,23 @@ export async function upsertSaleData(payload: Record<string, any>) {
       showCountdown: payload.showCountdown !== undefined ? Boolean(payload.showCountdown) : true,
       enabled: payload.enabled !== undefined ? Boolean(payload.enabled) : true,
     };
+
+    if (isMemoryFallbackActive()) {
+      let result;
+      if (payload.id) {
+        const idx = memoryStore.sales.findIndex((s) => s.id === Number(payload.id));
+        if (idx !== -1) {
+          memoryStore.sales[idx] = { ...memoryStore.sales[idx], ...values };
+          result = memoryStore.sales[idx];
+        }
+      }
+      if (!result) {
+        result = { id: Date.now(), ...values, createdAt: new Date() };
+        memoryStore.sales.push(result);
+      }
+      invalidateStoreCache();
+      return result;
+    }
 
     let result;
     if (payload.id) {
@@ -357,6 +464,12 @@ export async function upsertSaleData(payload: Record<string, any>) {
 
 export async function deleteSaleData(id: number) {
   try {
+    await ensureStoreSeeded();
+    if (isMemoryFallbackActive()) {
+      memoryStore.sales = memoryStore.sales.filter((s) => s.id !== id);
+      invalidateStoreCache();
+      return true;
+    }
     await db.delete(sales).where(eq(sales.id, id));
     invalidateStoreCache();
     return true;
@@ -368,6 +481,7 @@ export async function deleteSaleData(id: number) {
 
 export async function upsertPromoCodeData(payload: Record<string, any>) {
   try {
+    await ensureStoreSeeded();
     const code = String(payload.code || '')
       .trim()
       .toUpperCase()
@@ -408,6 +522,28 @@ export async function upsertPromoCodeData(payload: Record<string, any>) {
       enabled: payload.enabled !== undefined ? Boolean(payload.enabled) : true,
     };
 
+    if (isMemoryFallbackActive()) {
+      let result;
+      if (payload.id) {
+        const idx = memoryStore.promoCodes.findIndex((p) => p.id === Number(payload.id));
+        if (idx !== -1) {
+          memoryStore.promoCodes[idx] = { ...memoryStore.promoCodes[idx], ...values };
+          result = memoryStore.promoCodes[idx];
+        }
+      }
+      if (!result) {
+        result = {
+          id: Date.now(),
+          currentUses: 0,
+          ...values,
+          createdAt: new Date(),
+        };
+        memoryStore.promoCodes.push(result);
+      }
+      invalidateStoreCache();
+      return result;
+    }
+
     let result;
     if (payload.id) {
       const updated = await db
@@ -433,6 +569,12 @@ export async function upsertPromoCodeData(payload: Record<string, any>) {
 
 export async function deletePromoCodeData(id: number) {
   try {
+    await ensureStoreSeeded();
+    if (isMemoryFallbackActive()) {
+      memoryStore.promoCodes = memoryStore.promoCodes.filter((p) => p.id !== id);
+      invalidateStoreCache();
+      return true;
+    }
     await db.delete(promoCodes).where(eq(promoCodes.id, id));
     invalidateStoreCache();
     return true;
@@ -444,11 +586,24 @@ export async function deletePromoCodeData(id: number) {
 
 export async function importStoreBackupData(backupPayload: any) {
   try {
+    await ensureStoreSeeded();
     if (!backupPayload || !backupPayload.data) {
       throw new Error('Invalid backup file format.');
     }
 
     const { data } = backupPayload;
+
+    if (isMemoryFallbackActive()) {
+      if (Array.isArray(data.storeSettings) && data.storeSettings[0]) {
+        memoryStore.settings = {
+          ...memoryStore.settings,
+          ...data.storeSettings[0],
+          updatedAt: new Date(),
+        };
+      }
+      invalidateStoreCache();
+      return true;
+    }
 
     await db.transaction(async (tx) => {
       if (Array.isArray(data.storeSettings) && data.storeSettings.length > 0) {

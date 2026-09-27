@@ -2771,19 +2771,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bg-[#120C0E] border border-[#2C181D] rounded-2xl p-6 space-y-4">
                   <h3 className="text-sm font-extrabold uppercase tracking-wider text-white">
-                    Export Store Data Backup
+                    Export Store Data & Standalone HTML
                   </h3>
                   <p className="text-xs text-zinc-400">
-                    Download a full JSON snapshot of your store settings, sections, products, sales, promo codes, and orders.
+                    Download a full JSON snapshot of your database or a single self-contained <code className="text-red-400">ownverse-store-standalone.html</code> file with all your current products, sections, and custom settings embedded.
                   </p>
-                  <button
-                    type="button"
-                    onClick={handleExportBackup}
-                    className="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-extrabold uppercase tracking-wider flex items-center gap-2 cursor-pointer"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span>Export Full JSON Backup</span>
-                  </button>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <a
+                      href="/api/store/export-html"
+                      download="ownverse-store-standalone.html"
+                      className="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-extrabold uppercase tracking-wider flex items-center gap-2 cursor-pointer shadow-lg shadow-red-950/50"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span>Download Store (.HTML)</span>
+                    </a>
+                    <button
+                      type="button"
+                      onClick={handleExportBackup}
+                      className="px-4 py-2.5 rounded-xl bg-[#181013] hover:bg-[#23151A] border border-[#2C181D] text-white text-xs font-extrabold uppercase tracking-wider flex items-center gap-2 cursor-pointer"
+                    >
+                      <Download className="w-4 h-4 text-red-400" />
+                      <span>Export JSON Backup</span>
+                    </button>
+                  </div>
                 </div>
 
                 <div className="bg-[#120C0E] border border-[#2C181D] rounded-2xl p-6 space-y-4">
