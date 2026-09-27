@@ -788,7 +788,7 @@ export default function App() {
                             </div>
                             <div className="flex items-center justify-between gap-2">
                               <span className="font-mono text-xs sm:text-sm font-bold text-white select-all">
-                                {settings.serverIp && settings.serverIp !== 'play.ownverse.mc'
+                                {settings.serverIp && settings.serverIp !== 'mc.ownverse.net'
                                   ? settings.serverIp
                                   : 'mc.ownverse.net'}
                               </span>
@@ -796,7 +796,7 @@ export default function App() {
                                 type="button"
                                 onClick={() =>
                                   handleCopyIpValue(
-                                    settings.serverIp && settings.serverIp !== 'play.ownverse.mc'
+                                    settings.serverIp && settings.serverIp !== 'mc.ownverse.net'
                                       ? settings.serverIp
                                       : 'mc.ownverse.net',
                                     'java'
