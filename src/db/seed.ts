@@ -16,6 +16,8 @@ import {
   type HeroConfig,
   type PromoBannerConfig,
   type PaymentMethodConfig,
+  type AdsConfig,
+  type AdSlotConfig,
   type PoliciesConfig,
   type FaqItem,
 } from './schema.ts';
@@ -189,6 +191,156 @@ export function ensurePaymentMethodsHaveQrSupport(
     normalized.splice(insertIdx, 0, { ...qrDefault });
   }
   return normalized;
+}
+
+function createDefaultAdBannerDataUri(
+  kicker: string,
+  headline: string,
+  subtext: string,
+  ctaText: string,
+  accentHex: string
+): string {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 260" width="1200" height="260">
+    <defs>
+      <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#19080C"/>
+        <stop offset="50%" stop-color="#110709"/>
+        <stop offset="100%" stop-color="#090506"/>
+      </linearGradient>
+      <radialGradient id="glow" cx="82%" cy="50%" r="48%">
+        <stop offset="0%" stop-color="${accentHex}" stop-opacity="0.28"/>
+        <stop offset="100%" stop-color="${accentHex}" stop-opacity="0"/>
+      </radialGradient>
+      <pattern id="grid" width="36" height="36" patternUnits="userSpaceOnUse">
+        <path d="M 36 0 L 0 0 0 36" fill="none" stroke="#ffffff" stroke-width="1" stroke-opacity="0.035"/>
+      </pattern>
+    </defs>
+    <rect width="1200" height="260" fill="url(#bg)"/>
+    <rect width="1200" height="260" fill="url(#grid)"/>
+    <rect width="1200" height="260" fill="url(#glow)"/>
+    <circle cx="1030" cy="130" r="160" fill="none" stroke="${accentHex}" stroke-opacity="0.16" stroke-width="2" stroke-dasharray="10 8"/>
+    <circle cx="1030" cy="130" r="105" fill="none" stroke="${accentHex}" stroke-opacity="0.24" stroke-width="1.5"/>
+    <rect x="48" y="42" width="6" height="176" rx="3" fill="${accentHex}"/>
+    <text x="76" y="78" fill="${accentHex}" font-family="monospace" font-weight="700" font-size="15" letter-spacing="2.5">${kicker}</text>
+    <text x="76" y="132" fill="#FFFFFF" font-family="sans-serif" font-weight="800" font-size="36" letter-spacing="-0.5">${headline}</text>
+    <text x="76" y="172" fill="#D4C5C8" font-family="sans-serif" font-weight="500" font-size="18">${subtext}</text>
+    <rect x="76" y="192" width="230" height="38" rx="8" fill="${accentHex}"/>
+    <text x="191" y="216" fill="#FFFFFF" font-family="sans-serif" font-weight="700" font-size="14" text-anchor="middle" letter-spacing="1">${ctaText}</text>
+  </svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+export const DEFAULT_ADS_CONFIG: AdsConfig = {
+  enabled: true,
+  slots: [
+    {
+      id: 'ad-slot-1',
+      slotNumber: 1,
+      placementLabel: 'Ad Space 1 — Top Storefront Leaderboard (Below Hero Banner)',
+      enabled: true,
+      title: 'Join the Official OwnVerse Discord Community',
+      subtitle: 'Participate in weekly rank giveaways, faction wars, and live drop events!',
+      badgeText: 'OFFICIAL PARTNER AD',
+      imageUrl: createDefaultAdBannerDataUri(
+        'OWNVERSE DISCORD • LIVE EVENTS & GIVEAWAYS',
+        'Join 5,000+ Players on Our Official Discord',
+        'Unlock free crate keys, patch notes, and instant billing support.',
+        'CLICK TO JOIN DISCORD ↗',
+        '#EF4444'
+      ),
+      targetUrl: 'https://discord.gg/ownverse',
+    },
+    {
+      id: 'ad-slot-2',
+      slotNumber: 2,
+      placementLabel: 'Ad Space 2 — Catalog Mid-Page Banner (Above Packages)',
+      enabled: true,
+      title: 'Season 2 Netherite Siege & Clan Championship',
+      subtitle: 'Compete for $250 Store Credit and exclusive Immortal Clan Tags.',
+      badgeText: 'SEASON 2 EVENT',
+      imageUrl: createDefaultAdBannerDataUri(
+        'SEASON 2 TOURNAMENT • $250 PRIZE POOL',
+        'Forge Your Clan for the Citadel Siege Event',
+        'Gear up with Combat & Raid Kits and dominate the weekend leaderboards.',
+        'VIEW EVENT DETAILS ↗',
+        '#DC2626'
+      ),
+      targetUrl: 'https://discord.gg/ownverse',
+    },
+    {
+      id: 'ad-slot-3',
+      slotNumber: 3,
+      placementLabel: 'Ad Space 3 — Store Showcase Left Banner (Below Catalog)',
+      enabled: true,
+      title: 'OwnVerse Creator & Streamer Partner Program',
+      subtitle: 'Record on mc.ownverse.net & earn custom Creator Codes and Media Rank perks.',
+      badgeText: 'CREATOR SPOTLIGHT',
+      imageUrl: createDefaultAdBannerDataUri(
+        'MEDIA & CREATOR PARTNER PROGRAM',
+        'Stream OwnVerse & Earn Custom Creator Perks',
+        'Apply for YouTuber / TikToker Media Rank on our Discord portal.',
+        'APPLY FOR MEDIA RANK ↗',
+        '#F59E0B'
+      ),
+      targetUrl: 'https://discord.gg/ownverse',
+    },
+    {
+      id: 'ad-slot-4',
+      slotNumber: 4,
+      placementLabel: 'Ad Space 4 — Store Showcase Right Banner (Below Catalog)',
+      enabled: true,
+      title: 'Ultra-Low Ping Pakistan Route & Bedrock Crossplay',
+      subtitle: 'Connect via uae.ownverse.net or Bedrock Port 19132 for lag-free PvP.',
+      badgeText: 'NETWORK UPGRADE',
+      imageUrl: createDefaultAdBannerDataUri(
+        'JAVA & BEDROCK CROSSPLAY • LOW LATENCY',
+        'Play With Friends on PC, Mobile & Console',
+        'Java IP: mc.ownverse.net • Bedrock: play.ownverse.fun (19132)',
+        'OPEN SERVER GUIDE ↗',
+        '#EF4444'
+      ),
+      targetUrl: 'https://discord.gg/ownverse',
+    },
+  ],
+};
+
+export function ensureAdsConfigNormalized(ads?: AdsConfig | null): AdsConfig {
+  if (!ads || typeof ads !== 'object') {
+    return {
+      enabled: DEFAULT_ADS_CONFIG.enabled,
+      slots: DEFAULT_ADS_CONFIG.slots.map((s) => ({ ...s })),
+    };
+  }
+  const incomingSlots = Array.isArray(ads.slots) ? ads.slots : [];
+  const slots: AdSlotConfig[] = DEFAULT_ADS_CONFIG.slots.map((defSlot, index) => {
+    const found =
+      incomingSlots.find(
+        (s) => s && (s.id === defSlot.id || Number(s.slotNumber) === defSlot.slotNumber)
+      ) || incomingSlots[index];
+    if (!found) return { ...defSlot };
+    return {
+      id: defSlot.id,
+      slotNumber: defSlot.slotNumber,
+      placementLabel: defSlot.placementLabel,
+      enabled: found.enabled !== undefined ? Boolean(found.enabled) : defSlot.enabled,
+      title: typeof found.title === 'string' ? found.title : defSlot.title,
+      subtitle: typeof found.subtitle === 'string' ? found.subtitle : defSlot.subtitle,
+      badgeText: typeof found.badgeText === 'string' ? found.badgeText : defSlot.badgeText,
+      imageUrl:
+        typeof found.imageUrl === 'string' && found.imageUrl.trim()
+          ? found.imageUrl.trim()
+          : defSlot.imageUrl,
+      targetUrl:
+        typeof found.targetUrl === 'string' && found.targetUrl.trim()
+          ? found.targetUrl.trim()
+          : defSlot.targetUrl,
+    };
+  });
+
+  return {
+    enabled: ads.enabled !== undefined ? Boolean(ads.enabled) : true,
+    slots,
+  };
 }
 
 export const DEFAULT_POLICIES: PoliciesConfig = {
@@ -437,6 +589,7 @@ export function hydrateMemoryStoreFromSnapshot(data: any): boolean {
     paymentMethodsConfig: ensurePaymentMethodsHaveQrSupport(
       settingsObj.paymentMethodsConfig
     ),
+    adsConfig: ensureAdsConfigNormalized(settingsObj.adsConfig),
     adminPasswordHash: settingsObj.adminPasswordHash || fallbackHash,
   };
   memoryStore.sections = Array.isArray(data.sections) ? data.sections : [];
@@ -491,6 +644,7 @@ function initMemoryStoreDefaults() {
     heroConfig: DEFAULT_HERO_CONFIG,
     promoBannerConfig: DEFAULT_PROMO_BANNER,
     paymentMethodsConfig: DEFAULT_PAYMENT_METHODS,
+    adsConfig: DEFAULT_ADS_CONFIG,
     policiesConfig: DEFAULT_POLICIES,
     faqItems: DEFAULT_FAQS,
     adminPasswordHash: hashedAdminKey,
@@ -714,11 +868,13 @@ async function ensurePostgresTablesExist() {
       hero_config JSONB NOT NULL,
       promo_banner_config JSONB NOT NULL,
       payment_methods_config JSONB NOT NULL,
+      ads_config JSONB,
       policies_config JSONB NOT NULL,
       faq_items JSONB NOT NULL,
       admin_password_hash TEXT,
       updated_at TIMESTAMP DEFAULT NOW()
     );
+    ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS ads_config JSONB;
     CREATE TABLE IF NOT EXISTS sections (
       id SERIAL PRIMARY KEY,
       slug TEXT NOT NULL UNIQUE,
@@ -890,6 +1046,7 @@ export async function applySnapshotToPostgres(data: any): Promise<void> {
         paymentMethodsConfig: ensurePaymentMethodsHaveQrSupport(
           importedSettings.paymentMethodsConfig
         ),
+        adsConfig: ensureAdsConfigNormalized(importedSettings.adsConfig),
         policiesConfig: importedSettings.policiesConfig || DEFAULT_POLICIES,
         faqItems: importedSettings.faqItems || DEFAULT_FAQS,
         adminPasswordHash:
@@ -1105,7 +1262,8 @@ export async function ensureStoreSeeded(): Promise<void> {
         try {
           await pool
             .query(
-              `ALTER TABLE products ADD COLUMN IF NOT EXISTS protection TEXT NOT NULL DEFAULT 'Verified Delivery';`
+              `ALTER TABLE products ADD COLUMN IF NOT EXISTS protection TEXT NOT NULL DEFAULT 'Verified Delivery';
+               ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS ads_config JSONB;`
             )
             .catch(() => {});
           existingSettings = await db.select().from(storeSettings).limit(1);
@@ -1142,6 +1300,7 @@ export async function ensureStoreSeeded(): Promise<void> {
           const updatedMethods = ensurePaymentMethodsHaveQrSupport(
             current.paymentMethodsConfig
           );
+          const updatedAds = ensureAdsConfigNormalized(current.adsConfig);
           const nextFavicon =
             !current.faviconUrl || current.faviconUrl === '/favicon.svg'
               ? '/favicon.png'
@@ -1149,13 +1308,15 @@ export async function ensureStoreSeeded(): Promise<void> {
           if (
             nextFavicon !== current.faviconUrl ||
             JSON.stringify(updatedMethods) !==
-              JSON.stringify(current.paymentMethodsConfig)
+              JSON.stringify(current.paymentMethodsConfig) ||
+            JSON.stringify(updatedAds) !== JSON.stringify(current.adsConfig)
           ) {
             await db
               .update(storeSettings)
               .set({
                 faviconUrl: nextFavicon,
                 paymentMethodsConfig: updatedMethods,
+                adsConfig: updatedAds,
                 updatedAt: new Date(),
               })
               .where(eq(storeSettings.id, current.id));
@@ -1198,6 +1359,7 @@ export async function ensureStoreSeeded(): Promise<void> {
         heroConfig: DEFAULT_HERO_CONFIG,
         promoBannerConfig: DEFAULT_PROMO_BANNER,
         paymentMethodsConfig: DEFAULT_PAYMENT_METHODS,
+        adsConfig: DEFAULT_ADS_CONFIG,
         policiesConfig: DEFAULT_POLICIES,
         faqItems: DEFAULT_FAQS,
         adminPasswordHash: hashedAdminKey,

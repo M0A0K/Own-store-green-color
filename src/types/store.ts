@@ -51,6 +51,23 @@ export interface PaymentMethodConfig {
   feePercent: number;
 }
 
+export interface AdSlotConfig {
+  id: string;
+  slotNumber: number;
+  placementLabel: string;
+  enabled: boolean;
+  title: string;
+  subtitle: string;
+  badgeText: string;
+  imageUrl: string;
+  targetUrl: string;
+}
+
+export interface AdsConfig {
+  enabled: boolean;
+  slots: AdSlotConfig[];
+}
+
 export interface PoliciesConfig {
   termsAndConditions: string;
   privacyPolicy: string;
@@ -95,6 +112,7 @@ export interface StoreSettings {
   heroConfig: HeroConfig;
   promoBannerConfig: PromoBannerConfig;
   paymentMethodsConfig: PaymentMethodConfig[];
+  adsConfig: AdsConfig;
   policiesConfig: PoliciesConfig;
   faqItems: FaqItem[];
 }

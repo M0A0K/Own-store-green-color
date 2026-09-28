@@ -63,6 +63,23 @@ export interface PaymentMethodConfig {
   feePercent: number;
 }
 
+export interface AdSlotConfig {
+  id: string;
+  slotNumber: number;
+  placementLabel: string;
+  enabled: boolean;
+  title: string;
+  subtitle: string;
+  badgeText: string;
+  imageUrl: string;
+  targetUrl: string;
+}
+
+export interface AdsConfig {
+  enabled: boolean;
+  slots: AdSlotConfig[];
+}
+
 export interface PoliciesConfig {
   termsAndConditions: string;
   privacyPolicy: string;
@@ -134,6 +151,7 @@ export const storeSettings = pgTable('store_settings', {
   heroConfig: jsonb('hero_config').$type<HeroConfig>().notNull(),
   promoBannerConfig: jsonb('promo_banner_config').$type<PromoBannerConfig>().notNull(),
   paymentMethodsConfig: jsonb('payment_methods_config').$type<PaymentMethodConfig[]>().notNull(),
+  adsConfig: jsonb('ads_config').$type<AdsConfig>(),
   policiesConfig: jsonb('policies_config').$type<PoliciesConfig>().notNull(),
   faqItems: jsonb('faq_items').$type<FaqItem[]>().notNull(),
   adminPasswordHash: text('admin_password_hash'),

@@ -15,6 +15,7 @@ import {
   LogIn,
   LogOut,
   AlertCircle,
+  ExternalLink,
 } from 'lucide-react';
 import { auth, googleAuthProvider } from './lib/firebase.ts';
 import {
@@ -23,6 +24,7 @@ import {
   StoreProduct,
   StoreSale,
   ServerStatus,
+  AdSlotConfig,
 } from './types/store.ts';
 import { SmartImage } from './components/SmartImage.tsx';
 import { ProductDetailModal } from './components/ProductDetailModal.tsx';
@@ -44,6 +46,81 @@ type ViewMode =
   | 'refund'
   | 'delivery'
   | 'admin';
+
+function normalizeExternalAdUrl(rawUrl?: string): string {
+  const trimmed = (rawUrl || '').trim();
+  if (!trimmed) return 'https://discord.gg/ownverse';
+  if (
+    trimmed.startsWith('http://') ||
+    trimmed.startsWith('https://') ||
+    trimmed.startsWith('/')
+  ) {
+    return trimmed;
+  }
+  return `https://${trimmed}`;
+}
+
+const StoreAdBannerCard: React.FC<{
+  slot: AdSlotConfig;
+  compact?: boolean;
+}> = ({ slot, compact = false }) => {
+  if (!slot || !slot.enabled || !slot.imageUrl) return null;
+  const href = normalizeExternalAdUrl(slot.targetUrl);
+
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={slot.title ? `${slot.title} — Opens in new tab` : 'Open sponsored link in new tab'}
+      className="group block rounded-2xl bg-[#120C0E] border border-[#2C181D] hover:border-red-500/60 ov-ad-banner animate-ov-fade-up cursor-pointer shadow-lg"
+    >
+      <div
+        className={`relative w-full bg-[#090708] overflow-hidden ${
+          compact
+            ? 'aspect-[16/5] sm:aspect-[16/4.6] max-h-52'
+            : 'aspect-[16/5] sm:aspect-[21/5] max-h-60'
+        }`}
+      >
+        <SmartImage
+          src={slot.imageUrl}
+          alt={slot.title || `Store Ad Banner #${slot.slotNumber}`}
+          fallbackTitle={slot.title || `Ad Space #${slot.slotNumber}`}
+          fallbackEmoji="📢"
+          className="w-full h-full"
+          imgClassName="w-full h-full object-cover group-hover:scale-[1.025] transition-transform duration-500 ease-out"
+        />
+
+        {/* Top-right Sponsored / New Tab Indicator */}
+        <div className="absolute top-2.5 right-2.5 px-2.5 py-1 rounded-md bg-black/75 backdrop-blur-sm border border-white/15 group-hover:border-red-500/60 group-hover:bg-red-600/90 text-[10px] font-mono font-bold uppercase tracking-wider text-zinc-200 group-hover:text-white flex items-center gap-1 transition-colors">
+          <span>{slot.badgeText || 'Sponsored'}</span>
+          <ExternalLink className="w-3 h-3" />
+        </div>
+      </div>
+
+      {(slot.title || slot.subtitle) && (
+        <div className="px-4 py-3 bg-[#120C0E] border-t border-[#2C181D] flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            {slot.title && (
+              <div className="text-xs sm:text-sm font-bold text-white group-hover:text-red-400 transition-colors truncate">
+                {slot.title}
+              </div>
+            )}
+            {slot.subtitle && (
+              <div className="text-[11px] text-zinc-400 truncate mt-0.5">
+                {slot.subtitle}
+              </div>
+            )}
+          </div>
+          <span className="px-3 py-1 rounded-lg bg-[#181013] group-hover:bg-red-600 border border-[#2C181D] group-hover:border-red-500 text-[11px] font-bold text-zinc-200 group-hover:text-white flex items-center gap-1.5 transition-colors shrink-0">
+            <span>Visit Link</span>
+            <ExternalLink className="w-3 h-3" />
+          </span>
+        </div>
+      )}
+    </a>
+  );
+};
 
 export default function App() {
   // Storefront data from PostgreSQL
@@ -429,6 +506,14 @@ export default function App() {
       ? 'py-16'
       : 'py-12';
 
+  const adsEnabled = Boolean(settings?.adsConfig?.enabled);
+  const adSlots = settings?.adsConfig?.slots || [];
+  const adSlot1 = adSlots.find((s) => s.slotNumber === 1 && s.enabled);
+  const adSlot2 = adSlots.find((s) => s.slotNumber === 2 && s.enabled);
+  const bottomAdSlots = adSlots.filter(
+    (s) => (s.slotNumber === 3 || s.slotNumber === 4) && s.enabled
+  );
+
   return (
     <div
       style={
@@ -715,13 +800,13 @@ export default function App() {
 
               <div className="relative max-w-7xl mx-auto px-4 sm:px-8 py-12 lg:py-16 space-y-8">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-                  <div className="lg:col-span-8 space-y-5">
+                  <div className="lg:col-span-8 space-y-5 animate-ov-fade-up">
                     <div className="flex items-center gap-3">
                       <SmartImage
                         src={settings?.logoUrl}
                         alt="OwnVerse Crest"
                         fallbackEmoji="👑"
-                        className="w-12 h-12 rounded-xl border border-red-500/30 shrink-0"
+                        className="w-12 h-12 rounded-xl border border-red-500/30 shrink-0 animate-ov-float"
                       />
                       <div className="text-xs text-red-400 font-semibold tracking-wide uppercase font-mono">
                         {settings?.heroConfig.kicker ||
@@ -744,7 +829,7 @@ export default function App() {
                       <a
                         href="#catalog"
                         style={{ backgroundColor: theme?.buttonColor || '#DC2626' }}
-                        className="px-5 py-3 rounded-lg text-xs sm:text-sm font-bold text-white hover:opacity-95 transition-opacity flex items-center gap-2 whitespace-nowrap shadow-lg shadow-red-950/50"
+                        className="px-5 py-3 rounded-lg text-xs sm:text-sm font-bold text-white hover:opacity-95 hover:-translate-y-0.5 active:scale-95 transition-all flex items-center gap-2 whitespace-nowrap shadow-lg shadow-red-950/50"
                       >
                         <span>
                           {settings?.heroConfig.primaryCtaText || 'Explore Store Catalog'}
@@ -755,7 +840,7 @@ export default function App() {
                       <button
                         type="button"
                         onClick={() => navigateTo('order-lookup')}
-                        className="px-5 py-3 rounded-lg bg-[#181013] border border-[#2C181D] hover:border-red-500/50 text-xs sm:text-sm font-medium text-white transition-colors whitespace-nowrap cursor-pointer"
+                        className="px-5 py-3 rounded-lg bg-[#181013] border border-[#2C181D] hover:border-red-500/50 hover:-translate-y-0.5 active:scale-95 text-xs sm:text-sm font-medium text-white transition-all whitespace-nowrap cursor-pointer"
                       >
                         {settings?.heroConfig.secondaryCtaText || 'Track Existing Order'}
                       </button>
@@ -765,7 +850,7 @@ export default function App() {
                           href={settings.discordInviteUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="px-4 py-3 rounded-lg bg-[#120C0E] border border-[#2C181D] hover:border-red-500/50 text-xs sm:text-sm font-medium text-zinc-200 flex items-center gap-2 transition-colors whitespace-nowrap"
+                          className="px-4 py-3 rounded-lg bg-[#120C0E] border border-[#2C181D] hover:border-red-500/50 hover:-translate-y-0.5 active:scale-95 text-xs sm:text-sm font-medium text-zinc-200 flex items-center gap-2 transition-all whitespace-nowrap"
                         >
                           <MessageSquare className="w-4 h-4 text-red-400" />
                           <span>Join Discord</span>
@@ -776,8 +861,8 @@ export default function App() {
 
                   {/* Live Server Status Card */}
                   {settings?.heroConfig.showServerStatus && (
-                    <div className="lg:col-span-4">
-                      <div className="rounded-xl bg-[#120C0E] border border-[#2C181D] p-5 space-y-4">
+                    <div className="lg:col-span-4 animate-ov-fade-up" style={{ animationDelay: '90ms' }}>
+                      <div className="rounded-xl bg-[#120C0E] border border-[#2C181D] hover:border-red-500/35 transition-colors p-5 space-y-4 shadow-xl">
                         <div className="flex items-center justify-between border-b border-[#2C181D] pb-3">
                           <div className="flex items-center gap-2">
                             <span
@@ -935,7 +1020,7 @@ export default function App() {
 
                 {/* Active Store Sale Campaign Strip */}
                 {activeSales.length > 0 && (
-                  <div className="rounded-xl bg-[#120C0E] border border-red-500/35 px-5 py-3.5 flex flex-wrap items-center justify-between gap-4">
+                  <div className="rounded-xl bg-[#120C0E] border border-red-500/35 px-5 py-3.5 flex flex-wrap items-center justify-between gap-4 animate-ov-glow">
                     <div className="flex items-center gap-3 text-xs sm:text-sm">
                       <Tag className="w-4 h-4 text-red-400 shrink-0" />
                       <div>
@@ -959,6 +1044,13 @@ export default function App() {
                 )}
               </div>
             </section>
+
+            {/* AD SPACE 1: Top Storefront Leaderboard Banner (Below Hero) */}
+            {adsEnabled && adSlot1 && (
+              <section className="max-w-7xl mx-auto px-4 sm:px-8 pt-2">
+                <StoreAdBannerCard slot={adSlot1} />
+              </section>
+            )}
 
             {/* 2. Catalog Controls, Section Tabs, Search & Product Grid */}
             <section
@@ -1096,6 +1188,9 @@ export default function App() {
                 </div>
               </div>
 
+              {/* AD SPACE 2: Catalog Mid-Page Banner */}
+              {adsEnabled && adSlot2 && <StoreAdBannerCard slot={adSlot2} />}
+
               {/* 3-Column Product Collection Grid */}
               {filteredProducts.length === 0 ? (
                 <div className="rounded-xl bg-[#120C0E] border border-[#2C181D] p-12 text-center space-y-3">
@@ -1119,7 +1214,7 @@ export default function App() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-                  {filteredProducts.map((product) => {
+                  {filteredProducts.map((product, prodIdx) => {
                     const sec = product.sectionId
                       ? sectionMap.get(product.sectionId)
                       : undefined;
@@ -1131,8 +1226,9 @@ export default function App() {
                         style={{
                           backgroundColor: theme?.bgCard || '#181013',
                           borderRadius: theme?.cardRadius || '12px',
+                          animationDelay: `${Math.min(prodIdx * 60, 360)}ms`,
                         }}
-                        className="group border border-[#2C181D] hover:border-red-500/40 transition-colors duration-150 flex flex-col overflow-hidden"
+                        className="group border border-[#2C181D] hover:border-red-500/50 ov-card-animated animate-ov-fade-up flex flex-col overflow-hidden"
                       >
                         {/* Lead with Imagery (4:3 aspect ratio) */}
                         <div
@@ -1145,7 +1241,7 @@ export default function App() {
                             fallbackTitle={product.name}
                             fallbackEmoji={product.emojiIcon}
                             className="w-full h-full"
-                            imgClassName="w-full h-full object-cover"
+                            imgClassName="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
                           />
 
                           {/* Max 1 Clean Tag on Image */}
@@ -1312,6 +1408,25 @@ export default function App() {
                 </div>
               )}
             </section>
+
+            {/* AD SPACES 3 & 4: Store Showcase Ad Banners (Below Catalog) */}
+            {adsEnabled && bottomAdSlots.length > 0 && (
+              <section className="max-w-7xl mx-auto px-4 sm:px-8">
+                <div
+                  className={`grid grid-cols-1 ${
+                    bottomAdSlots.length > 1 ? 'lg:grid-cols-2' : ''
+                  } gap-6`}
+                >
+                  {bottomAdSlots.map((slot) => (
+                    <StoreAdBannerCard
+                      key={slot.id}
+                      slot={slot}
+                      compact={bottomAdSlots.length > 1}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
 
             {/* 3. Store Trust, Delivery & Payment Ecosystem Section */}
             <section className="max-w-7xl mx-auto px-4 sm:px-8">

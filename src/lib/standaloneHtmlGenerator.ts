@@ -19,6 +19,11 @@ export function generateStandaloneStoreHtml(storeData: {
     storeData.settings?.heroConfig?.subtitle ||
     'Equip lifetime network ranks, enchanted Netherite combat loadouts, and mythic vault keys.'
   }" />
+  <link rel="icon" type="image/png" href="${
+    storeData.settings?.faviconUrl && storeData.settings.faviconUrl !== '/favicon.svg'
+      ? storeData.settings.faviconUrl
+      : '/favicon.png'
+  }" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Syne:wght@700;800&display=swap" rel="stylesheet">
@@ -136,6 +141,9 @@ export function generateStandaloneStoreHtml(storeData: {
         </div>
       </section>
 
+      <!-- Ad Space 1 -->
+      <div id="ad-slot-1-container"></div>
+
       <!-- Category & Search Controls -->
       <section id="catalog-grid" class="space-y-5">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-[#120C0E] p-4 rounded-xl border border-[#2C181D]">
@@ -161,8 +169,14 @@ export function generateStandaloneStoreHtml(storeData: {
           </div>
         </div>
 
+        <!-- Ad Space 2 -->
+        <div id="ad-slot-2-container"></div>
+
         <!-- Product Grid -->
         <div id="products-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+
+        <!-- Ad Spaces 3 & 4 -->
+        <div id="ad-slots-bottom-container" class="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-2"></div>
       </section>
     </div>
 
@@ -334,11 +348,54 @@ export function generateStandaloneStoreHtml(storeData: {
       }
 
       renderSpotlight();
+      renderStoreAds();
       renderSectionTabs();
       renderProducts();
       renderFaqAndPolicies();
       initPaymentMethods();
       updateCartUI();
+    }
+
+    function renderAdBannerHtml(slot) {
+      if (!slot || !slot.enabled || !slot.imageUrl) return '';
+      const rawUrl = (slot.targetUrl || 'https://discord.gg/ownverse').trim();
+      const href = (rawUrl.startsWith('http://') || rawUrl.startsWith('https://') || rawUrl.startsWith('/')) ? rawUrl : ('https://' + rawUrl);
+      return \`
+        <a href="\${escapeHtml(href)}" target="_blank" rel="noopener noreferrer" class="block rounded-2xl bg-[#120C0E] border border-[#2C181D] hover:border-red-500/60 overflow-hidden transition shadow-lg">
+          <div class="relative w-full aspect-[21/5] max-h-56 bg-[#090708] overflow-hidden">
+            <img src="\${escapeHtml(slot.imageUrl)}" alt="\${escapeHtml(slot.title || 'Sponsored Ad')}" class="w-full h-full object-cover" />
+            <span class="absolute top-2.5 right-2.5 px-2.5 py-1 rounded bg-black/75 border border-white/15 text-[10px] font-mono font-bold uppercase text-white">\${escapeHtml(slot.badgeText || 'Sponsored')} ↗</span>
+          </div>
+          \${(slot.title || slot.subtitle) ? \`
+            <div class="px-4 py-3 border-t border-[#2C181D] flex items-center justify-between gap-3">
+              <div>
+                \${slot.title ? \`<div class="text-xs sm:text-sm font-bold text-white">\${escapeHtml(slot.title)}</div>\` : ''}
+                \${slot.subtitle ? \`<div class="text-[11px] text-zinc-400">\${escapeHtml(slot.subtitle)}</div>\` : ''}
+              </div>
+              <span class="px-3 py-1 rounded-lg bg-red-600 text-[11px] font-bold text-white shrink-0">Visit Link ↗</span>
+            </div>
+          \` : ''}
+        </a>
+      \`;
+    }
+
+    function renderStoreAds() {
+      const ads = STORE_DATA.settings && STORE_DATA.settings.adsConfig;
+      const c1 = document.getElementById('ad-slot-1-container');
+      const c2 = document.getElementById('ad-slot-2-container');
+      const cBottom = document.getElementById('ad-slots-bottom-container');
+      if (!ads || !ads.enabled || !Array.isArray(ads.slots)) {
+        if (c1) c1.innerHTML = '';
+        if (c2) c2.innerHTML = '';
+        if (cBottom) cBottom.innerHTML = '';
+        return;
+      }
+      const s1 = ads.slots.find(s => Number(s.slotNumber) === 1 && s.enabled);
+      const s2 = ads.slots.find(s => Number(s.slotNumber) === 2 && s.enabled);
+      const sBottom = ads.slots.filter(s => (Number(s.slotNumber) === 3 || Number(s.slotNumber) === 4) && s.enabled);
+      if (c1) c1.innerHTML = s1 ? renderAdBannerHtml(s1) : '';
+      if (c2) c2.innerHTML = s2 ? renderAdBannerHtml(s2) : '';
+      if (cBottom) cBottom.innerHTML = sBottom.map(s => renderAdBannerHtml(s)).join('');
     }
 
     function renderSpotlight() {
@@ -611,9 +668,13 @@ export function generateStandaloneStoreHtml(storeData: {
         infoEl.innerHTML = '';
         return;
       }
+      const mode = m.paymentType || (m.id === 'qr_payment' ? 'qr' : 'number');
+      const showNumber = (mode === 'number' || mode === 'both') && m.accountNumber;
+      const showQr = (mode === 'qr' || mode === 'both') && m.qrCodeUrl;
       infoEl.innerHTML = \`
         <div class="font-bold text-white">\${escapeHtml(m.name)} — \${escapeHtml(m.accountTitle)}</div>
-        <div class="font-mono text-red-400 select-all">Account / Wallet: \${escapeHtml(m.accountNumber)}</div>
+        \${showNumber ? \`<div class="font-mono text-red-400 select-all">Account / Wallet: \${escapeHtml(m.accountNumber)}</div>\` : ''}
+        \${showQr ? \`<div class="pt-2"><img src="\${escapeHtml(m.qrCodeUrl)}" alt="Payment QR Code" class="w-36 h-36 object-contain bg-white p-1.5 rounded-lg border border-red-500/40" /></div>\` : ''}
         <div class="text-zinc-400 text-[11px] pt-1">\${escapeHtml(m.instructions)}</div>
       \`;
     }

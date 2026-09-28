@@ -29,6 +29,8 @@ import {
   Image as ImageIcon,
   KeyRound,
   LogIn,
+  Megaphone,
+  ExternalLink,
 } from 'lucide-react';
 import {
   StoreSettings,
@@ -86,6 +88,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     | 'media'
     | 'sales'
     | 'promos'
+    | 'ads'
     | 'theme'
     | 'payments'
     | 'policies'
@@ -850,6 +853,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               { id: 'orders', label: `Orders (${orders.length})`, icon: ShoppingCart },
               { id: 'sales', label: `Sales (${sales.length})`, icon: Percent },
               { id: 'promos', label: `Promo Codes (${promoCodes.length})`, icon: Tag },
+              {
+                id: 'ads',
+                label: `Store Ads (${
+                  settings?.adsConfig?.enabled ? 'ON · 4 Spaces' : 'OFF'
+                })`,
+                icon: Megaphone,
+              },
               { id: 'theme', label: 'Red Theme & Settings', icon: Palette },
               { id: 'payments', label: 'Payment Methods', icon: CreditCard },
               { id: 'policies', label: 'FAQ & Policies', icon: FileText },
@@ -2694,6 +2704,254 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     className="px-3 py-2 rounded-lg bg-[#090708] border border-[#2C181D] text-xs font-mono text-white"
                   />
                 </div>
+              </div>
+            </form>
+          )}
+
+          {/* 8B. STORE ADS (4 SPACES) TAB */}
+          {activeTab === 'ads' && settings && (
+            <form
+              onSubmit={(e) => handleSaveStoreSettings(e)}
+              className="bg-[#120C0E] border border-[#2C181D] rounded-2xl p-6 space-y-6"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#2C181D] pb-4">
+                <div>
+                  <h2 className="text-lg font-extrabold text-white flex items-center gap-2">
+                    <Megaphone className="w-5 h-5 text-red-500" />
+                    <span>Store Ad Banners & Placements (4 Customizable Spaces)</span>
+                  </h2>
+                  <p className="text-xs text-zinc-400 mt-0.5">
+                    Enable or disable ads across the entire store. When enabled, visitors see your custom ad banners and clicking any ad opens its target URL in a new browser tab. When disabled, every ad space in the store is completely hidden.
+                  </p>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={savingSettings}
+                  className="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white text-xs font-extrabold uppercase tracking-wider cursor-pointer shadow-lg shadow-red-950/50"
+                >
+                  {savingSettings ? 'Saving Ads...' : 'Save All Ad Spaces'}
+                </button>
+              </div>
+
+              {/* Master Global Enable / Disable Switch */}
+              <div
+                className={`p-5 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors ${
+                  settings.adsConfig?.enabled
+                    ? 'bg-red-500/10 border-red-500/40'
+                    : 'bg-[#090708] border-[#2C181D]'
+                }`}
+              >
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2.5">
+                    <span
+                      className={`w-2.5 h-2.5 rounded-full ${
+                        settings.adsConfig?.enabled ? 'bg-red-500' : 'bg-zinc-600'
+                      }`}
+                    />
+                    <span className="text-sm font-extrabold text-white uppercase tracking-wide">
+                      Master Store Ads Status:{' '}
+                      <span
+                        className={
+                          settings.adsConfig?.enabled ? 'text-red-400' : 'text-zinc-400'
+                        }
+                      >
+                        {settings.adsConfig?.enabled
+                          ? 'ENABLED (Visible to All Store Visitors)'
+                          : 'DISABLED (Every Ad Hidden in Store)'}
+                      </span>
+                    </span>
+                  </div>
+                  <p className="text-xs text-zinc-400">
+                    {settings.adsConfig?.enabled
+                      ? 'Store visitors can currently see all enabled ad spaces below. Clicking any ad banner opens its URL in a new tab.'
+                      : 'All 4 ad spaces are currently hidden across the entire storefront. Toggle on to display your ads to visitors.'}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2.5 shrink-0">
+                  <button
+                    type="button"
+                    disabled={savingSettings}
+                    onClick={async () => {
+                      const nextEnabled = !settings.adsConfig?.enabled;
+                      const updatedAds = {
+                        ...(settings.adsConfig || { slots: [] }),
+                        enabled: nextEnabled,
+                      };
+                      const nextSettings = {
+                        ...settings,
+                        adsConfig: updatedAds,
+                      };
+                      setSettings(nextSettings);
+                      setSavingSettings(true);
+                      try {
+                        const res = await adminFetch('/api/admin/settings', {
+                          method: 'PUT',
+                          body: JSON.stringify(nextSettings),
+                        });
+                        if (res.ok) {
+                          showNotice(
+                            'success',
+                            nextEnabled
+                              ? 'Store Ads ENABLED! Visitors now see your active ad banners.'
+                              : 'Store Ads DISABLED! Every ad in the store is now hidden.'
+                          );
+                          await fetchFullAdminState(undefined, true);
+                          onStoreUpdated?.();
+                        }
+                      } finally {
+                        setSavingSettings(false);
+                      }
+                    }}
+                    className={`px-4 py-2.5 rounded-xl text-xs font-extrabold uppercase tracking-wider border transition-all cursor-pointer ${
+                      settings.adsConfig?.enabled
+                        ? 'bg-[#181013] hover:bg-red-950/50 text-red-300 border-red-500/40'
+                        : 'bg-red-600 hover:bg-red-500 text-white border-red-500 shadow-lg shadow-red-950/50'
+                    }`}
+                  >
+                    {settings.adsConfig?.enabled
+                      ? 'Disable & Hide All Store Ads'
+                      : 'Enable Store Ads Now'}
+                  </button>
+                </div>
+              </div>
+
+              {/* 4 Customizable Store Ad Space Cards */}
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+                {(settings.adsConfig?.slots || []).map((slot, idx) => {
+                  const updateSlot = (patch: Partial<typeof slot>) => {
+                    const currentSlots = [...(settings.adsConfig?.slots || [])];
+                    currentSlots[idx] = { ...slot, ...patch };
+                    setSettings({
+                      ...settings,
+                      adsConfig: {
+                        ...(settings.adsConfig || { enabled: true }),
+                        slots: currentSlots,
+                      },
+                    });
+                  };
+
+                  return (
+                    <div
+                      key={slot.id || idx}
+                      className={`p-5 rounded-xl bg-[#090708] border space-y-4 flex flex-col justify-between ${
+                        slot.enabled && settings.adsConfig?.enabled
+                          ? 'border-red-500/35'
+                          : 'border-[#2C181D] opacity-80'
+                      }`}
+                    >
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between gap-3 border-b border-[#2C181D] pb-3">
+                          <div>
+                            <span className="text-[10px] font-mono uppercase tracking-wider text-red-400 block">
+                              Store Ad Slot #{slot.slotNumber}
+                            </span>
+                            <h3 className="text-sm font-extrabold text-white">
+                              {slot.placementLabel}
+                            </h3>
+                          </div>
+
+                          <label className="flex items-center gap-2 text-xs font-bold text-zinc-200 cursor-pointer shrink-0">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(slot.enabled)}
+                              onChange={(e) => updateSlot({ enabled: e.target.checked })}
+                            />
+                            <span>{slot.enabled ? 'Slot Active' : 'Slot Hidden'}</span>
+                          </label>
+                        </div>
+
+                        {/* Ad Banner Image Upload / URL / Media Vault Picker */}
+                        <ImageFieldControl
+                          label={`Ad Space #${slot.slotNumber} Banner Image`}
+                          helpText="Upload your custom ad banner image (recommended wide banner 1200x260 or 16:5) or paste an image URL."
+                          value={slot.imageUrl || ''}
+                          onChange={(newUrl: string) => updateSlot({ imageUrl: newUrl })}
+                          onUploadFile={(file) =>
+                            handleUploadImageFile(file, `ad_slot_${slot.slotNumber}`)
+                          }
+                          mediaAssets={mediaAssets}
+                          aspectClass="w-32 h-16"
+                          fallbackEmoji="📢"
+                        />
+
+                        {/* Target Click URL (Opens in New Tab) */}
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="text-[11px] font-bold text-zinc-300">
+                              Click Destination URL (Opens in New Tab) *
+                            </label>
+                            {slot.targetUrl && (
+                              <a
+                                href={
+                                  slot.targetUrl.startsWith('http://') ||
+                                  slot.targetUrl.startsWith('https://')
+                                    ? slot.targetUrl
+                                    : `https://${slot.targetUrl}`
+                                }
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[11px] font-mono text-red-400 hover:underline flex items-center gap-1"
+                              >
+                                <span>Test Link</span>
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                            )}
+                          </div>
+                          <input
+                            type="text"
+                            value={slot.targetUrl || ''}
+                            onChange={(e) => updateSlot({ targetUrl: e.target.value })}
+                            placeholder="https://discord.gg/ownverse or https://your-partner-link.com"
+                            className="w-full px-3 py-2 rounded-lg bg-[#120C0E] border border-[#2C181D] focus:border-red-500 text-xs font-mono text-white outline-none"
+                          />
+                        </div>
+
+                        {/* Ad Title, Badge & Subtitle */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <div className="sm:col-span-2">
+                            <label className="block text-[11px] font-bold text-zinc-300 mb-1">
+                              Ad Headline / Title (Optional)
+                            </label>
+                            <input
+                              type="text"
+                              value={slot.title || ''}
+                              onChange={(e) => updateSlot({ title: e.target.value })}
+                              placeholder="e.g. Join the Official OwnVerse Discord"
+                              className="w-full px-3 py-2 rounded-lg bg-[#120C0E] border border-[#2C181D] focus:border-red-500 text-xs text-white outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-bold text-zinc-300 mb-1">
+                              Corner Badge Label
+                            </label>
+                            <input
+                              type="text"
+                              value={slot.badgeText || ''}
+                              onChange={(e) => updateSlot({ badgeText: e.target.value })}
+                              placeholder="SPONSORED"
+                              className="w-full px-3 py-2 rounded-lg bg-[#120C0E] border border-[#2C181D] focus:border-red-500 text-xs font-mono text-white outline-none"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold text-zinc-300 mb-1">
+                            Ad Subtitle / Call-to-Action Caption (Optional)
+                          </label>
+                          <input
+                            type="text"
+                            value={slot.subtitle || ''}
+                            onChange={(e) => updateSlot({ subtitle: e.target.value })}
+                            placeholder="Short description shown under the banner..."
+                            className="w-full px-3 py-2 rounded-lg bg-[#120C0E] border border-[#2C181D] focus:border-red-500 text-xs text-white outline-none"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </form>
           )}

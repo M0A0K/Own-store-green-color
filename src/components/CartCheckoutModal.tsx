@@ -215,6 +215,12 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
       setOrderError('Please enter your Payment Reference / Transaction ID.');
       return;
     }
+    if (selectedMethod?.requiresReceipt && !receiptUrl) {
+      setOrderError(
+        `Please upload your payment receipt screenshot (required for ${selectedMethod.name}).`
+      );
+      return;
+    }
 
     setSubmittingOrder(true);
     try {
@@ -730,6 +736,9 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                     {enabledPaymentMethods.map((method) => {
                       const active = selectedMethod?.id === method.id;
+                      const mode =
+                        method.paymentType ||
+                        (method.id === 'qr_payment' ? 'qr' : 'number');
                       return (
                         <button
                           key={method.id}
@@ -737,58 +746,122 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
                           onClick={() => setSelectedPaymentId(method.id)}
                           className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
                             active
-                              ? 'bg-red-500/15 border-red-500 text-white'
+                              ? 'bg-red-500/15 border-red-500 text-white shadow-md shadow-red-950/40'
                               : 'bg-[#090708] border-[#2C181D] text-zinc-400 hover:text-zinc-200'
                           }`}
                         >
-                          <span className="text-xs font-extrabold block">{method.name}</span>
+                          <div className="flex items-center justify-between gap-1.5">
+                            <span className="text-xs font-extrabold truncate">
+                              {method.name}
+                            </span>
+                            <span className="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded bg-[#160E11] border border-[#2C181D] text-red-400 shrink-0">
+                              {mode === 'qr'
+                                ? 'QR'
+                                : mode === 'both'
+                                ? 'NUM+QR'
+                                : 'NUM'}
+                            </span>
+                          </div>
                           <span className="text-[10px] text-zinc-500 truncate block mt-0.5">
-                            {method.accountTitle}
+                            {method.badgeText || method.accountTitle}
                           </span>
                         </button>
                       );
                     })}
                   </div>
 
-                  {/* Selected Method Instructions */}
-                  {selectedMethod && (
-                    <div className="p-4 rounded-xl bg-[#090708] border border-[#2C181D] space-y-3">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div>
-                          <span className="text-[11px] font-mono uppercase text-zinc-500 block">
-                            Account Title: {selectedMethod.accountTitle}
-                          </span>
-                          <span className="text-sm font-mono font-bold text-red-400">
-                            {selectedMethod.accountNumber}
-                          </span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            navigator.clipboard.writeText(selectedMethod.accountNumber);
-                            setCopiedAccount(true);
-                            setTimeout(() => setCopiedAccount(false), 2000);
-                          }}
-                          className="px-3 py-1.5 rounded-lg bg-[#160E11] hover:bg-[#1E1317] text-xs font-mono text-zinc-300 border border-[#351D22] flex items-center gap-1.5 cursor-pointer"
-                        >
-                          {copiedAccount ? (
-                            <>
-                              <Check className="w-3.5 h-3.5 text-red-400" />
-                              <span className="text-red-400">Copied</span>
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="w-3.5 h-3.5" />
-                              <span>Copy Account</span>
-                            </>
+                  {/* Selected Method Instructions (Supports Account Number, QR Code, or Both) */}
+                  {selectedMethod && (() => {
+                    const activeMode =
+                      selectedMethod.paymentType ||
+                      (selectedMethod.id === 'qr_payment' ? 'qr' : 'number');
+                    const showNumber =
+                      (activeMode === 'number' || activeMode === 'both') &&
+                      Boolean(selectedMethod.accountNumber?.trim());
+                    const showQr = activeMode === 'qr' || activeMode === 'both';
+
+                    return (
+                      <div className="p-4 rounded-xl bg-[#090708] border border-[#2C181D] space-y-3.5">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div>
+                            <span className="text-[11px] font-mono uppercase text-zinc-400 block">
+                              {selectedMethod.name} · {selectedMethod.accountTitle}
+                            </span>
+                            {showNumber && (
+                              <span className="text-sm font-mono font-bold text-red-400 select-all">
+                                {selectedMethod.accountNumber}
+                              </span>
+                            )}
+                          </div>
+                          {showNumber && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(selectedMethod.accountNumber);
+                                setCopiedAccount(true);
+                                setTimeout(() => setCopiedAccount(false), 2000);
+                              }}
+                              className="px-3 py-1.5 rounded-lg bg-[#160E11] hover:bg-[#1E1317] text-xs font-mono text-zinc-300 border border-[#351D22] flex items-center gap-1.5 cursor-pointer"
+                            >
+                              {copiedAccount ? (
+                                <>
+                                  <Check className="w-3.5 h-3.5 text-red-400" />
+                                  <span className="text-red-400">Copied</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-3.5 h-3.5" />
+                                  <span>Copy Number</span>
+                                </>
+                              )}
+                            </button>
                           )}
-                        </button>
+                        </div>
+
+                        {showQr && (
+                          <div className="p-3.5 rounded-xl bg-[#120C0E] border border-red-500/30 flex flex-col sm:flex-row items-center gap-4">
+                            {selectedMethod.qrCodeUrl ? (
+                              <div className="p-2 rounded-xl bg-white border-2 border-red-500/40 shrink-0 shadow-lg">
+                                <SmartImage
+                                  src={selectedMethod.qrCodeUrl}
+                                  alt={`${selectedMethod.name} QR Code`}
+                                  fallbackEmoji="🏁"
+                                  className="w-36 h-36 sm:w-40 sm:h-40 rounded-lg overflow-hidden"
+                                  imgClassName="w-full h-full object-contain"
+                                />
+                              </div>
+                            ) : (
+                              <div className="w-32 h-32 rounded-xl bg-[#090708] border border-dashed border-red-500/40 flex flex-col items-center justify-center text-center p-3 shrink-0">
+                                <span className="text-2xl mb-1">🏁</span>
+                                <span className="text-[10px] font-mono text-zinc-400">
+                                  QR Code Ready in Admin
+                                </span>
+                              </div>
+                            )}
+                            <div className="space-y-1.5 text-center sm:text-left">
+                              <span className="inline-block px-2 py-0.5 rounded bg-red-500/15 border border-red-500/30 text-[10px] font-mono font-bold uppercase text-red-400">
+                                Scan QR Code to Pay
+                              </span>
+                              <p className="text-xs font-semibold text-white">
+                                Open your banking or mobile wallet app and scan this QR code to transfer{' '}
+                                <span className="font-mono text-red-400">
+                                  {formatUsdPkr(evaluation?.finalTotal ?? 0, currencySymbol)}
+                                </span>
+                                .
+                              </p>
+                              <p className="text-[11px] text-zinc-400">
+                                After scanning and completing payment, enter your Transaction / Reference ID below.
+                              </p>
+                            </div>
+                          </div>
+                        )}
+
+                        <p className="text-xs text-zinc-300 leading-relaxed">
+                          {selectedMethod.instructions}
+                        </p>
                       </div>
-                      <p className="text-xs text-zinc-300 leading-relaxed">
-                        {selectedMethod.instructions}
-                      </p>
-                    </div>
-                  )}
+                    );
+                  })()}
 
                   {/* Transaction Reference + Screenshot */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
@@ -808,7 +881,12 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
 
                     <div>
                       <label className="block text-xs font-semibold text-zinc-300 mb-1.5">
-                        Payment Receipt / Screenshot (Optional)
+                        Payment Receipt / Screenshot{' '}
+                        {selectedMethod?.requiresReceipt ? (
+                          <span className="text-red-400">* (Required)</span>
+                        ) : (
+                          <span className="text-zinc-500">(Optional)</span>
+                        )}
                       </label>
                       <label className="flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-lg bg-[#090708] hover:bg-[#1E1317] border border-dashed border-[#351D22] text-xs text-zinc-300 cursor-pointer transition-colors">
                         <Upload className="w-4 h-4 text-red-400" />

@@ -16,6 +16,8 @@ import {
   isMemoryFallbackActive,
   memoryStore,
   persistStoreStateToDisk,
+  ensureAdsConfigNormalized,
+  ensurePaymentMethodsHaveQrSupport,
 } from './seed.ts';
 
 function roundCurrency(val: number): number {
@@ -255,9 +257,16 @@ export async function getPublicStoreBootstrap() {
       .map((p) => computeEffectiveProductPricing(p, activeSales));
 
     const { adminPasswordHash: _ignored, ...safeSettings } = settings;
+    const normalizedSettings = {
+      ...safeSettings,
+      paymentMethodsConfig: ensurePaymentMethodsHaveQrSupport(
+        safeSettings.paymentMethodsConfig
+      ),
+      adsConfig: ensureAdsConfigNormalized(safeSettings.adsConfig),
+    };
 
     const payload = {
-      settings: safeSettings,
+      settings: normalizedSettings,
       sections: visibleSections,
       products: enrichedProducts,
       activeSales,
@@ -348,9 +357,16 @@ export async function getAdminFullState() {
     );
 
     const { adminPasswordHash: _ignored, ...safeSettings } = settingsRow;
+    const normalizedSettings = {
+      ...safeSettings,
+      paymentMethodsConfig: ensurePaymentMethodsHaveQrSupport(
+        safeSettings.paymentMethodsConfig
+      ),
+      adsConfig: ensureAdsConfigNormalized(safeSettings.adsConfig),
+    };
 
     return {
-      settings: safeSettings,
+      settings: normalizedSettings,
       sections: allSections,
       products: enrichedProducts,
       sales: allSales,

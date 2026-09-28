@@ -16,6 +16,7 @@ import {
   applySnapshotToPostgres,
   hydrateMemoryStoreFromSnapshot,
   persistStoreStateToDisk,
+  ensureAdsConfigNormalized,
 } from './seed.ts';
 import { invalidateStoreCache, invalidateMediaCache } from './repository.ts';
 
@@ -94,6 +95,9 @@ export async function updateStoreSettingsData(payload: Record<string, any>) {
     }
     if (Array.isArray(payload.paymentMethodsConfig)) {
       updateFields.paymentMethodsConfig = payload.paymentMethodsConfig;
+    }
+    if (payload.adsConfig && typeof payload.adsConfig === 'object') {
+      updateFields.adsConfig = ensureAdsConfigNormalized(payload.adsConfig);
     }
     if (payload.policiesConfig && typeof payload.policiesConfig === 'object') {
       updateFields.policiesConfig = { ...current.policiesConfig, ...payload.policiesConfig };
