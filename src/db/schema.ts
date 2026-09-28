@@ -53,8 +53,10 @@ export interface PaymentMethodConfig {
   id: string;
   name: string;
   enabled: boolean;
+  paymentType?: 'number' | 'qr' | 'both';
   accountTitle: string;
   accountNumber: string;
+  qrCodeUrl?: string;
   instructions: string;
   requiresReceipt: boolean;
   badgeText: string;
@@ -113,7 +115,7 @@ export const storeSettings = pgTable('store_settings', {
   storeName: text('store_name').notNull().default('OwnVerse Store'),
   storeTagline: text('store_tagline').notNull().default('Official Minecraft Network Storefront'),
   logoUrl: text('logo_url').notNull(),
-  faviconUrl: text('favicon_url').notNull().default('/favicon.svg'),
+  faviconUrl: text('favicon_url').notNull().default('/favicon.png'),
   serverIp: text('server_ip').notNull().default('mc.ownverse.net'),
   serverPort: integer('server_port').notNull().default(25565),
   serverStatusMode: text('server_status_mode').notNull().default('live_with_fallback'),

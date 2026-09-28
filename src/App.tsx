@@ -223,7 +223,7 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Dynamic SEO Title & Meta updates
+  // Dynamic SEO Title, Meta & Browser Tab Icon (Favicon) updates
   useEffect(() => {
     if (!settings) return;
     if (activeProductModal) {
@@ -234,6 +234,34 @@ export default function App() {
       document.title = `Admin Console — ${settings.storeName}`;
     } else {
       document.title = `${settings.storeName} — ${settings.storeTagline}`;
+    }
+
+    const rawFavicon = settings.faviconUrl?.trim();
+    const targetFavicon =
+      rawFavicon && rawFavicon !== '/favicon.svg'
+        ? rawFavicon
+        : '/favicon.png';
+
+    const iconLinks = document.querySelectorAll<HTMLLinkElement>(
+      "link[rel='icon'], link[rel='shortcut icon'], link[rel='apple-touch-icon']"
+    );
+    if (iconLinks.length > 0) {
+      iconLinks.forEach((link) => {
+        if (link.href !== targetFavicon) {
+          link.href = targetFavicon;
+        }
+        if (targetFavicon.endsWith('.svg')) {
+          link.type = 'image/svg+xml';
+        } else {
+          link.type = 'image/png';
+        }
+      });
+    } else {
+      const link = document.createElement('link');
+      link.rel = 'icon';
+      link.type = 'image/png';
+      link.href = targetFavicon;
+      document.head.appendChild(link);
     }
   }, [settings, activeProductModal, viewMode]);
 

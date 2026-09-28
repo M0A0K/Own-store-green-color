@@ -303,7 +303,7 @@ export const AdminImageSettingsTab: React.FC<AdminImageSettingsTabProps> = ({
           </button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <ImageFieldControl
             label="Store Logo Image"
             value={settingsForm.logoUrl || ''}
@@ -312,9 +312,24 @@ export const AdminImageSettingsTab: React.FC<AdminImageSettingsTabProps> = ({
             }
             onUploadFile={onUploadFile}
             mediaAssets={mediaAssets}
-            aspectClass="h-24 w-24"
+            aspectClass="h-20 w-20"
             fallbackEmoji="👑"
-            helpText="Displayed in the top navigation bar and footer. Leave empty to use the crimson geometric emblem."
+            helpText="Displayed in the hero header and storefront branding."
+          />
+
+          <ImageFieldControl
+            label="Browser Tab Icon (Favicon)"
+            value={settingsForm.faviconUrl || '/favicon.png'}
+            onChange={(newUrl) =>
+              setSettingsForm((prev) =>
+                prev ? { ...prev, faviconUrl: newUrl || '/favicon.png' } : prev
+              )
+            }
+            onUploadFile={onUploadFile}
+            mediaAssets={mediaAssets}
+            aspectClass="h-20 w-20"
+            fallbackEmoji="🌐"
+            helpText="Displayed in the browser tab bar and bookmarks. Defaults to the OwnVerse Minecraft title logo."
           />
 
           <ImageFieldControl
@@ -332,9 +347,9 @@ export const AdminImageSettingsTab: React.FC<AdminImageSettingsTabProps> = ({
             }
             onUploadFile={onUploadFile}
             mediaAssets={mediaAssets}
-            aspectClass="h-24 w-40"
+            aspectClass="h-20 w-32"
             fallbackEmoji="🌋"
-            helpText="Displayed behind the homepage hero header. Leave empty for a clean, high-FPS dark crimson gradient."
+            helpText="Displayed behind the homepage hero header."
           />
         </div>
 

@@ -41,8 +41,10 @@ export interface PaymentMethodConfig {
   id: string;
   name: string;
   enabled: boolean;
+  paymentType?: 'number' | 'qr' | 'both';
   accountTitle: string;
   accountNumber: string;
+  qrCodeUrl?: string;
   instructions: string;
   requiresReceipt: boolean;
   badgeText: string;

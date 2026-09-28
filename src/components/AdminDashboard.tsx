@@ -2396,21 +2396,34 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </button>
               </div>
 
-              {/* Store Logo & Hero Banner Image Replacement */}
+              {/* Store Logo, Browser Tab Icon & Hero Banner Image Replacement */}
               <div className="space-y-4">
                 <h3 className="text-xs font-extrabold uppercase tracking-wider text-red-400">
-                  1. Store Logo & Hero Banner Images
+                  1. Store Logo, Browser Tab Icon (Favicon) & Hero Banner
                 </h3>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                   <ImageFieldControl
                     label="Store Brand Logo"
-                    helpText="Displayed in the top navigation bar, hero card, and footer."
+                    helpText="Displayed in the hero card and branding."
                     value={settings.logoUrl || ''}
                     onChange={(newUrl: string) => setSettings({ ...settings, logoUrl: newUrl })}
                     onUploadFile={(file) => handleUploadImageFile(file, 'branding')}
                     mediaAssets={mediaAssets}
                     aspectClass="w-16 h-16"
                     fallbackEmoji="🛡️"
+                  />
+
+                  <ImageFieldControl
+                    label="Browser Tab Icon (Favicon)"
+                    helpText="Icon shown in the browser tab bar. Defaults to your Minecraft title logo (/favicon.png)."
+                    value={settings.faviconUrl || '/favicon.png'}
+                    onChange={(newUrl: string) =>
+                      setSettings({ ...settings, faviconUrl: newUrl || '/favicon.png' })
+                    }
+                    onUploadFile={(file) => handleUploadImageFile(file, 'branding')}
+                    mediaAssets={mediaAssets}
+                    aspectClass="w-16 h-16"
+                    fallbackEmoji="🌐"
                   />
 
                   <ImageFieldControl
@@ -2691,79 +2704,310 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               onSubmit={(e) => handleSaveStoreSettings(e)}
               className="bg-[#120C0E] border border-[#2C181D] rounded-2xl p-6 space-y-5"
             >
-              <div className="flex items-center justify-between border-b border-[#2C181D] pb-4">
+              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#2C181D] pb-4">
                 <div>
                   <h2 className="text-lg font-extrabold text-white">
-                    Configurable Payment Methods
+                    Configurable Payment Methods (Account Number or QR Code)
                   </h2>
                   <p className="text-xs text-zinc-400">
-                    Configure JazzCash, Easypaisa, Bank Transfer, Raast, Crypto, and Card instructions.
+                    For each payment method, choose whether to show an <strong className="text-zinc-200">Account Number</strong> or a <strong className="text-zinc-200">QR Code</strong> (or both), and manage your separate QR Code Payment methods.
                   </p>
                 </div>
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-extrabold uppercase tracking-wider cursor-pointer"
-                >
-                  Save Payment Methods
-                </button>
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nextId = `qr_${Date.now().toString(36)}`;
+                      setSettings({
+                        ...settings,
+                        paymentMethodsConfig: [
+                          ...settings.paymentMethodsConfig,
+                          {
+                            id: nextId,
+                            name: 'QR Code Payment',
+                            enabled: true,
+                            paymentType: 'qr',
+                            accountTitle: 'OwnVerse QR Scan & Pay',
+                            accountNumber: '',
+                            qrCodeUrl: '',
+                            instructions:
+                              'Scan the QR code above using your mobile wallet or banking app, then enter your Transaction Reference ID below.',
+                            requiresReceipt: true,
+                            badgeText: 'Scan & Pay QR',
+                            feePercent: 0,
+                          },
+                        ],
+                      });
+                    }}
+                    className="px-3.5 py-2.5 rounded-xl bg-[#181013] hover:bg-[#23151A] border border-red-500/40 text-red-300 text-xs font-extrabold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-red-400" />
+                    <span>Add Separate QR Method</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nextId = `method_${Date.now().toString(36)}`;
+                      setSettings({
+                        ...settings,
+                        paymentMethodsConfig: [
+                          ...settings.paymentMethodsConfig,
+                          {
+                            id: nextId,
+                            name: 'New Wallet / Bank',
+                            enabled: true,
+                            paymentType: 'number',
+                            accountTitle: 'OwnVerse Digital Network',
+                            accountNumber: '0300-0000000',
+                            qrCodeUrl: '',
+                            instructions:
+                              'Transfer the exact order amount and enter your Transaction Reference ID below.',
+                            requiresReceipt: false,
+                            badgeText: 'Instant Transfer',
+                            feePercent: 0,
+                          },
+                        ],
+                      });
+                    }}
+                    className="px-3.5 py-2.5 rounded-xl bg-[#181013] hover:bg-[#23151A] border border-[#2C181D] text-zinc-200 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-zinc-400" />
+                    <span>Add Number Method</span>
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={savingSettings}
+                    className="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white text-xs font-extrabold uppercase tracking-wider cursor-pointer shadow-lg shadow-red-950/50"
+                  >
+                    {savingSettings ? 'Saving...' : 'Save Payment Methods'}
+                  </button>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {settings.paymentMethodsConfig.map((pm, idx) => (
-                  <div
-                    key={pm.id}
-                    className="p-4 rounded-xl bg-[#090708] border border-[#2C181D] space-y-3"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-extrabold text-white">{pm.name}</span>
-                      <label className="flex items-center gap-1.5 text-xs text-zinc-300">
-                        <input
-                          type="checkbox"
-                          checked={pm.enabled}
-                          onChange={(e) => {
-                            const updated = [...settings.paymentMethodsConfig];
-                            updated[idx] = { ...pm, enabled: e.target.checked };
-                            setSettings({ ...settings, paymentMethodsConfig: updated });
-                          }}
-                        />
-                        <span>Enabled</span>
-                      </label>
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+                {settings.paymentMethodsConfig.map((pm, idx) => {
+                  const mode = pm.paymentType || (pm.id === 'qr_payment' ? 'qr' : 'number');
+                  return (
+                    <div
+                      key={pm.id || idx}
+                      className="p-5 rounded-xl bg-[#090708] border border-[#2C181D] space-y-4 flex flex-col justify-between"
+                    >
+                      <div className="space-y-3.5">
+                        {/* Header Row: Editable Name + Enabled + Delete */}
+                        <div className="flex items-center justify-between gap-3 border-b border-[#2C181D] pb-3">
+                          <div className="flex-1">
+                            <label className="block text-[10px] font-mono uppercase text-zinc-500 mb-0.5">
+                              Payment Method Name
+                            </label>
+                            <input
+                              type="text"
+                              value={pm.name}
+                              onChange={(e) => {
+                                const updated = [...settings.paymentMethodsConfig];
+                                updated[idx] = { ...pm, name: e.target.value };
+                                setSettings({ ...settings, paymentMethodsConfig: updated });
+                              }}
+                              placeholder="e.g. JazzCash, Easypaisa, QR Code Payment"
+                              className="w-full px-3 py-1.5 rounded-lg bg-[#120C0E] border border-[#2C181D] focus:border-red-500 text-sm font-extrabold text-white outline-none"
+                            />
+                          </div>
+
+                          <div className="flex items-center gap-3 pt-3">
+                            <label className="flex items-center gap-1.5 text-xs font-bold text-zinc-300 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={pm.enabled}
+                                onChange={(e) => {
+                                  const updated = [...settings.paymentMethodsConfig];
+                                  updated[idx] = { ...pm, enabled: e.target.checked };
+                                  setSettings({ ...settings, paymentMethodsConfig: updated });
+                                }}
+                              />
+                              <span>Enabled</span>
+                            </label>
+
+                            {settings.paymentMethodsConfig.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const updated = settings.paymentMethodsConfig.filter(
+                                    (_, i) => i !== idx
+                                  );
+                                  setSettings({ ...settings, paymentMethodsConfig: updated });
+                                }}
+                                className="p-1.5 rounded-lg bg-[#160E11] hover:bg-red-500/20 text-zinc-400 hover:text-red-400 border border-[#2C181D] cursor-pointer"
+                                title="Delete Payment Method"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* 2-Option Selector: Give Number vs Give QR Code (plus Both) */}
+                        <div className="space-y-1.5">
+                          <span className="block text-[11px] font-bold uppercase tracking-wider text-red-400">
+                            Select Payment Option (Number or QR Code)
+                          </span>
+                          <div className="grid grid-cols-3 gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = [...settings.paymentMethodsConfig];
+                                updated[idx] = { ...pm, paymentType: 'number' };
+                                setSettings({ ...settings, paymentMethodsConfig: updated });
+                              }}
+                              className={`py-2 px-3 rounded-lg text-xs font-extrabold border transition-all cursor-pointer ${
+                                mode === 'number'
+                                  ? 'bg-red-600 text-white border-red-500 shadow-md shadow-red-950/50'
+                                  : 'bg-[#120C0E] text-zinc-400 border-[#2C181D] hover:text-white'
+                              }`}
+                            >
+                              1. Give Number
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = [...settings.paymentMethodsConfig];
+                                updated[idx] = { ...pm, paymentType: 'qr' };
+                                setSettings({ ...settings, paymentMethodsConfig: updated });
+                              }}
+                              className={`py-2 px-3 rounded-lg text-xs font-extrabold border transition-all cursor-pointer ${
+                                mode === 'qr'
+                                  ? 'bg-red-600 text-white border-red-500 shadow-md shadow-red-950/50'
+                                  : 'bg-[#120C0E] text-zinc-400 border-[#2C181D] hover:text-white'
+                              }`}
+                            >
+                              2. Give QR Code
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = [...settings.paymentMethodsConfig];
+                                updated[idx] = { ...pm, paymentType: 'both' };
+                                setSettings({ ...settings, paymentMethodsConfig: updated });
+                              }}
+                              className={`py-2 px-3 rounded-lg text-xs font-extrabold border transition-all cursor-pointer ${
+                                mode === 'both'
+                                  ? 'bg-red-600 text-white border-red-500 shadow-md shadow-red-950/50'
+                                  : 'bg-[#120C0E] text-zinc-400 border-[#2C181D] hover:text-white'
+                              }`}
+                            >
+                              Both (Number + QR)
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Account Title & Badge */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-[11px] font-bold text-zinc-300 mb-1">
+                              Account Title / Merchant Name
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="Account Title"
+                              value={pm.accountTitle}
+                              onChange={(e) => {
+                                const updated = [...settings.paymentMethodsConfig];
+                                updated[idx] = { ...pm, accountTitle: e.target.value };
+                                setSettings({ ...settings, paymentMethodsConfig: updated });
+                              }}
+                              className="w-full px-3 py-2 rounded-lg bg-[#120C0E] border border-[#2C181D] text-xs text-white"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-bold text-zinc-300 mb-1">
+                              Subtitle / Badge Label
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="e.g. Scan & Pay QR / Instant PK Wallet"
+                              value={pm.badgeText || ''}
+                              onChange={(e) => {
+                                const updated = [...settings.paymentMethodsConfig];
+                                updated[idx] = { ...pm, badgeText: e.target.value };
+                                setSettings({ ...settings, paymentMethodsConfig: updated });
+                              }}
+                              className="w-full px-3 py-2 rounded-lg bg-[#120C0E] border border-[#2C181D] text-xs text-white"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Conditional Field 1: Account Number (shown when 'number' or 'both') */}
+                        {(mode === 'number' || mode === 'both') && (
+                          <div>
+                            <label className="block text-[11px] font-bold text-zinc-300 mb-1">
+                              Account Number / IBAN / Wallet Address
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="0301-8492015 / IBAN / Wallet Address"
+                              value={pm.accountNumber || ''}
+                              onChange={(e) => {
+                                const updated = [...settings.paymentMethodsConfig];
+                                updated[idx] = { ...pm, accountNumber: e.target.value };
+                                setSettings({ ...settings, paymentMethodsConfig: updated });
+                              }}
+                              className="w-full px-3 py-2 rounded-lg bg-[#120C0E] border border-[#2C181D] text-xs font-mono text-white"
+                            />
+                          </div>
+                        )}
+
+                        {/* Conditional Field 2: QR Code Image Uploader (shown when 'qr' or 'both') */}
+                        {(mode === 'qr' || mode === 'both') && (
+                          <ImageFieldControl
+                            label="QR Code Image (Upload or Select QR)"
+                            helpText="Customers will scan this QR code during checkout."
+                            value={pm.qrCodeUrl || ''}
+                            onChange={(newUrl: string) => {
+                              const updated = [...settings.paymentMethodsConfig];
+                              updated[idx] = { ...pm, qrCodeUrl: newUrl };
+                              setSettings({ ...settings, paymentMethodsConfig: updated });
+                            }}
+                            onUploadFile={(file) => handleUploadImageFile(file, 'qr_payment')}
+                            mediaAssets={mediaAssets}
+                            aspectClass="w-24 h-24"
+                            fallbackEmoji="🏁"
+                          />
+                        )}
+
+                        {/* Instructions & Require Receipt */}
+                        <div>
+                          <label className="block text-[11px] font-bold text-zinc-300 mb-1">
+                            Customer Checkout Instructions
+                          </label>
+                          <textarea
+                            rows={2}
+                            placeholder="Checkout instructions shown to the player..."
+                            value={pm.instructions}
+                            onChange={(e) => {
+                              const updated = [...settings.paymentMethodsConfig];
+                              updated[idx] = { ...pm, instructions: e.target.value };
+                              setSettings({ ...settings, paymentMethodsConfig: updated });
+                            }}
+                            className="w-full px-3 py-1.5 rounded-lg bg-[#120C0E] border border-[#2C181D] text-xs text-white"
+                          />
+                        </div>
+
+                        <label className="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(pm.requiresReceipt)}
+                            onChange={(e) => {
+                              const updated = [...settings.paymentMethodsConfig];
+                              updated[idx] = { ...pm, requiresReceipt: e.target.checked };
+                              setSettings({ ...settings, paymentMethodsConfig: updated });
+                            }}
+                          />
+                          <span>Require customer to upload payment receipt screenshot</span>
+                        </label>
+                      </div>
                     </div>
-                    <input
-                      type="text"
-                      placeholder="Account Title"
-                      value={pm.accountTitle}
-                      onChange={(e) => {
-                        const updated = [...settings.paymentMethodsConfig];
-                        updated[idx] = { ...pm, accountTitle: e.target.value };
-                        setSettings({ ...settings, paymentMethodsConfig: updated });
-                      }}
-                      className="w-full px-3 py-1.5 rounded-lg bg-[#120C0E] border border-[#2C181D] text-xs text-white"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Account Number / IBAN / Wallet"
-                      value={pm.accountNumber}
-                      onChange={(e) => {
-                        const updated = [...settings.paymentMethodsConfig];
-                        updated[idx] = { ...pm, accountNumber: e.target.value };
-                        setSettings({ ...settings, paymentMethodsConfig: updated });
-                      }}
-                      className="w-full px-3 py-1.5 rounded-lg bg-[#120C0E] border border-[#2C181D] text-xs font-mono text-white"
-                    />
-                    <textarea
-                      rows={2}
-                      placeholder="Checkout instructions"
-                      value={pm.instructions}
-                      onChange={(e) => {
-                        const updated = [...settings.paymentMethodsConfig];
-                        updated[idx] = { ...pm, instructions: e.target.value };
-                        setSettings({ ...settings, paymentMethodsConfig: updated });
-                      }}
-                      className="w-full px-3 py-1.5 rounded-lg bg-[#120C0E] border border-[#2C181D] text-xs text-white"
-                    />
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </form>
           )}

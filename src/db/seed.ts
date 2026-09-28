@@ -71,8 +71,10 @@ export const DEFAULT_PAYMENT_METHODS: PaymentMethodConfig[] = [
     id: 'jazzcash',
     name: 'JazzCash',
     enabled: true,
+    paymentType: 'number',
     accountTitle: 'OwnVerse Digital Network',
     accountNumber: '0301-8492015',
+    qrCodeUrl: '',
     instructions:
       'Send the exact order total via JazzCash mobile app or *786#. Enter your 11-digit TID / Transaction Reference ID below and attach your receipt screenshot for rapid verification.',
     requiresReceipt: false,
@@ -83,8 +85,10 @@ export const DEFAULT_PAYMENT_METHODS: PaymentMethodConfig[] = [
     id: 'easypaisa',
     name: 'Easypaisa',
     enabled: true,
+    paymentType: 'number',
     accountTitle: 'OwnVerse Digital Network',
     accountNumber: '0345-8492015',
+    qrCodeUrl: '',
     instructions:
       'Transfer the final amount to our verified Easypaisa merchant wallet. Copy the 11-digit Trx ID from your SMS/app confirmation and paste it in the Payment Reference field.',
     requiresReceipt: false,
@@ -92,11 +96,27 @@ export const DEFAULT_PAYMENT_METHODS: PaymentMethodConfig[] = [
     feePercent: 0,
   },
   {
+    id: 'qr_payment',
+    name: 'QR Code Payment',
+    enabled: true,
+    paymentType: 'qr',
+    accountTitle: 'OwnVerse QR Scan & Pay',
+    accountNumber: '',
+    qrCodeUrl: '',
+    instructions:
+      'Scan the official QR code above using your mobile wallet or banking app (JazzCash, Easypaisa, Raast, or Bank App). Enter your Transaction / Reference ID below and attach your payment receipt.',
+    requiresReceipt: true,
+    badgeText: 'Scan & Pay QR',
+    feePercent: 0,
+  },
+  {
     id: 'raast',
     name: 'Raast',
     enabled: true,
+    paymentType: 'number',
     accountTitle: 'OwnVerse Interactive Pvt',
     accountNumber: 'PK88MEZN0004829104920152',
+    qrCodeUrl: '',
     instructions:
       'Use any Pakistani banking app with Raast Instant Payment enabled. Enter our Raast ID / IBAN and provide the Raast Reference Number.',
     requiresReceipt: false,
@@ -107,8 +127,10 @@ export const DEFAULT_PAYMENT_METHODS: PaymentMethodConfig[] = [
     id: 'bank_transfer',
     name: 'Bank Transfer',
     enabled: true,
+    paymentType: 'number',
     accountTitle: 'OwnVerse Interactive (Meezan Bank)',
     accountNumber: '0482-0104920152',
+    qrCodeUrl: '',
     instructions:
       'Complete an IBFT transfer to Meezan Bank Account 0482-0104920152. Provide the STAN / Reference Number and upload your transfer receipt.',
     requiresReceipt: true,
@@ -119,8 +141,10 @@ export const DEFAULT_PAYMENT_METHODS: PaymentMethodConfig[] = [
     id: 'crypto',
     name: 'Crypto (USDT TRC20 / BEP20)',
     enabled: true,
+    paymentType: 'number',
     accountTitle: 'USDT Treasury Vault',
     accountNumber: 'TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE',
+    qrCodeUrl: '',
     instructions:
       'Send exact USD equivalent in USDT via TRC20 (Tron) or BEP20 (BSC: 0x8F49e2B5a91C4D7201598A2c8F1b9a32D1049201). Paste your Transaction Hash (TxID) in the reference box.',
     requiresReceipt: false,
@@ -131,8 +155,10 @@ export const DEFAULT_PAYMENT_METHODS: PaymentMethodConfig[] = [
     id: 'card',
     name: 'Debit / Credit Card',
     enabled: true,
+    paymentType: 'number',
     accountTitle: 'OwnVerse Global Billing Desk',
     accountNumber: 'pay.ownverse.mc/card-checkout',
+    qrCodeUrl: '',
     instructions:
       'Complete your 3D-Secure Visa / Mastercard payment via our billing link or Discord ticket checkout, then enter the 8-character Stripe/Gateway Receipt Code.',
     requiresReceipt: false,
@@ -140,6 +166,30 @@ export const DEFAULT_PAYMENT_METHODS: PaymentMethodConfig[] = [
     feePercent: 0,
   },
 ];
+
+export function ensurePaymentMethodsHaveQrSupport(
+  methods?: PaymentMethodConfig[]
+): PaymentMethodConfig[] {
+  if (!Array.isArray(methods) || methods.length === 0) {
+    return DEFAULT_PAYMENT_METHODS;
+  }
+  const normalized: PaymentMethodConfig[] = methods.map((pm) => ({
+    ...pm,
+    paymentType: pm.paymentType || (pm.id === 'qr_payment' ? 'qr' : 'number'),
+    qrCodeUrl: pm.qrCodeUrl || '',
+    accountNumber: pm.accountNumber || '',
+  }));
+
+  const hasSeparateQr = normalized.some(
+    (pm) => pm.id === 'qr_payment' || pm.name.toLowerCase().includes('qr')
+  );
+  if (!hasSeparateQr) {
+    const qrDefault = DEFAULT_PAYMENT_METHODS.find((m) => m.id === 'qr_payment')!;
+    const insertIdx = Math.min(2, normalized.length);
+    normalized.splice(insertIdx, 0, { ...qrDefault });
+  }
+  return normalized;
+}
 
 export const DEFAULT_POLICIES: PoliciesConfig = {
   termsAndConditions: `### 1. Acceptance of Network Store Terms
@@ -380,6 +430,13 @@ export function hydrateMemoryStoreFromSnapshot(data: any): boolean {
   memoryStore.settings = {
     ...settingsObj,
     id: settingsObj.id || 1,
+    faviconUrl:
+      !settingsObj.faviconUrl || settingsObj.faviconUrl === '/favicon.svg'
+        ? '/favicon.png'
+        : settingsObj.faviconUrl,
+    paymentMethodsConfig: ensurePaymentMethodsHaveQrSupport(
+      settingsObj.paymentMethodsConfig
+    ),
     adminPasswordHash: settingsObj.adminPasswordHash || fallbackHash,
   };
   memoryStore.sections = Array.isArray(data.sections) ? data.sections : [];
@@ -804,7 +861,10 @@ export async function applySnapshotToPostgres(data: any): Promise<void> {
         storeTagline:
           importedSettings.storeTagline || 'Official Minecraft Network Storefront',
         logoUrl: importedSettings.logoUrl ?? '',
-        faviconUrl: importedSettings.faviconUrl || '/favicon.svg',
+        faviconUrl:
+          !importedSettings.faviconUrl || importedSettings.faviconUrl === '/favicon.svg'
+            ? '/favicon.png'
+            : importedSettings.faviconUrl,
         serverIp: importedSettings.serverIp || 'mc.ownverse.net',
         serverPort: Number(importedSettings.serverPort) || 25565,
         serverStatusMode: importedSettings.serverStatusMode || 'live_with_fallback',
@@ -827,8 +887,9 @@ export async function applySnapshotToPostgres(data: any): Promise<void> {
         heroConfig: importedSettings.heroConfig || DEFAULT_HERO_CONFIG,
         promoBannerConfig:
           importedSettings.promoBannerConfig || DEFAULT_PROMO_BANNER,
-        paymentMethodsConfig:
-          importedSettings.paymentMethodsConfig || DEFAULT_PAYMENT_METHODS,
+        paymentMethodsConfig: ensurePaymentMethodsHaveQrSupport(
+          importedSettings.paymentMethodsConfig
+        ),
         policiesConfig: importedSettings.policiesConfig || DEFAULT_POLICIES,
         faqItems: importedSettings.faqItems || DEFAULT_FAQS,
         adminPasswordHash:
@@ -1076,6 +1137,29 @@ export async function ensureStoreSeeded(): Promise<void> {
         // database settings or products—just sync the current database state to disk.
         if (diskSnapshot && diskSnapshot.wasEditedInFiles) {
           await applySnapshotToPostgres(diskSnapshot.data);
+        } else {
+          const current = existingSettings[0];
+          const updatedMethods = ensurePaymentMethodsHaveQrSupport(
+            current.paymentMethodsConfig
+          );
+          const nextFavicon =
+            !current.faviconUrl || current.faviconUrl === '/favicon.svg'
+              ? '/favicon.png'
+              : current.faviconUrl;
+          if (
+            nextFavicon !== current.faviconUrl ||
+            JSON.stringify(updatedMethods) !==
+              JSON.stringify(current.paymentMethodsConfig)
+          ) {
+            await db
+              .update(storeSettings)
+              .set({
+                faviconUrl: nextFavicon,
+                paymentMethodsConfig: updatedMethods,
+                updatedAt: new Date(),
+              })
+              .where(eq(storeSettings.id, current.id));
+          }
         }
         await persistStoreStateToDisk();
         hasSeededThisProcess = true;
@@ -1097,7 +1181,7 @@ export async function ensureStoreSeeded(): Promise<void> {
         storeName: 'OwnVerse Store',
         storeTagline: 'Official Minecraft Network Storefront',
         logoUrl: '',
-        faviconUrl: '/favicon.svg',
+        faviconUrl: '/favicon.png',
         serverIp: process.env.MINECRAFT_SERVER_IP || 'mc.ownverse.net',
         serverPort: 25565,
         serverStatusMode: 'live_with_fallback',

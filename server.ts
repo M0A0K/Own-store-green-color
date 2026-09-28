@@ -98,6 +98,17 @@ app.use(
   })
 );
 
+// Serve browser tab favicon for /favicon.ico requests
+app.get('/favicon.ico', (_req: Request, res: Response) => {
+  const pngPath = path.join(__dirname, 'public', 'favicon.png');
+  if (fs.existsSync(pngPath)) {
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    return res.sendFile(pngPath);
+  }
+  return res.status(404).end();
+});
+
 // Health Check Endpoint (Railway & Cloud Run ready)
 app.get('/api/health', (_req: Request, res: Response) => {
   res.json({
