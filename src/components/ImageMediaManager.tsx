@@ -337,6 +337,51 @@ export const AdminImageSettingsTab: React.FC<AdminImageSettingsTabProps> = ({
             helpText="Displayed behind the homepage hero header. Leave empty for a clean, high-FPS dark crimson gradient."
           />
         </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-2 border-t border-zinc-800/80">
+          <div>
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-300 mb-1.5">
+              Hero Top Badge / Season Title (Kicker)
+            </label>
+            <input
+              type="text"
+              value={settingsForm.heroConfig.kicker || ''}
+              onChange={(e) =>
+                setSettingsForm((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        heroConfig: { ...prev.heroConfig, kicker: e.target.value },
+                      }
+                    : prev
+                )
+              }
+              placeholder="OwnVerse Network • Season 2"
+              className="w-full px-3 py-2 rounded-lg bg-[#090708] border border-zinc-800 text-xs text-white font-mono focus:outline-none focus:border-red-500"
+            />
+          </div>
+          <div>
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-300 mb-1.5">
+              Hero Main Headline
+            </label>
+            <input
+              type="text"
+              value={settingsForm.heroConfig.title || ''}
+              onChange={(e) =>
+                setSettingsForm((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        heroConfig: { ...prev.heroConfig, title: e.target.value },
+                      }
+                    : prev
+                )
+              }
+              placeholder="Forge Your Dominion Across the OwnVerse Realm"
+              className="w-full px-3 py-2 rounded-lg bg-[#090708] border border-zinc-800 text-xs text-white focus:outline-none focus:border-red-500"
+            />
+          </div>
+        </div>
       </div>
 
       {/* Section 2: Quick Product Image Replacer */}

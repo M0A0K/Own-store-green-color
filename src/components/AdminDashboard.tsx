@@ -186,8 +186,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     [getAuthHeaders]
   );
 
-  const fetchFullAdminState = useCallback(
+  const syncLocalBackupSnapshot = useCallback(
     async (tokenOverride?: string | null) => {
+      try {
+        const res = await adminFetch('/api/admin/backup/export', {}, tokenOverride);
+        if (res.ok) {
+          const backupData = await res.json();
+          localStorage.setItem('ownverse_persistent_backup_v1', JSON.stringify(backupData));
+        }
+      } catch {
+        // Ignore storage quota or network errors during background snapshot sync
+      }
+    },
+    [adminFetch]
+  );
+
+  const fetchFullAdminState = useCallback(
+    async (tokenOverride?: string | null, saveSnapshot = false) => {
       setLoadingData(true);
       try {
         const res = await adminFetch('/api/admin/state', {}, tokenOverride);
@@ -206,6 +221,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           setAnalytics(data.analytics || null);
           setMediaAssets(data.mediaAssets || []);
           setIsUnlocked(true);
+          if (saveSnapshot) {
+            await syncLocalBackupSnapshot(tokenOverride);
+          }
         }
       } catch (err) {
         console.error('Failed to load admin state:', err);
@@ -213,7 +231,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         setLoadingData(false);
       }
     },
-    [adminFetch]
+    [adminFetch, syncLocalBackupSnapshot]
   );
 
   useEffect(() => {
@@ -292,7 +310,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         return null;
       }
       showNotice('success', 'Image optimized & saved to PostgreSQL media vault.');
-      await fetchFullAdminState();
+      await fetchFullAdminState(undefined, true);
       onStoreUpdated?.();
       return data.url as string;
     } catch {
@@ -305,6 +323,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const res = await adminFetch(`/api/admin/media/${id}`, { method: 'DELETE' });
     if (res.ok) {
       setMediaAssets((prev) => prev.filter((m) => m.id !== id));
+      await syncLocalBackupSnapshot();
       showNotice('success', 'Image deleted from database.');
     } else {
       showNotice('error', 'Failed to delete image.');
@@ -334,7 +353,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       showNotice('error', data.error || 'Failed to update product images.');
     } else {
       showNotice('success', `Updated images for "${product.name}".`);
-      await fetchFullAdminState();
+      await fetchFullAdminState(undefined, true);
       onStoreUpdated?.();
     }
   };
@@ -369,7 +388,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // --- Product Actions ---
   const openProductEditor = (prod?: StoreProduct) => {
     if (prod) {
-      setEditingProduct({ ...prod });
+      setEditingProduct({
+        ...prod,
+        duration: prod.duration || 'Permanent (Lifetime)',
+        protection: prod.protection || 'Verified Delivery',
+      });
       setTagsText((prod.tags || []).join(', '));
       setWhatYouGetText((prod.whatYouGet || []).join('\n'));
       setRequirementsText((prod.requirements || []).join('\n'));
@@ -401,6 +424,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         lowStockThreshold: 5,
         displayOrder: products.length + 1,
         duration: 'Permanent (Lifetime)',
+        protection: 'Verified Delivery',
         deliveryInfo: 'Delivered automatically within 1–5 minutes of verification.',
         importantNotes: 'Double check your Minecraft username before checkout.',
         productTerms: 'All digital Minecraft packages are final once delivered in-game.',
@@ -419,6 +443,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
     const payload = {
       ...editingProduct,
+      duration: (editingProduct.duration || 'Permanent (Lifetime)').trim(),
+      protection: (editingProduct.protection || 'Verified Delivery').trim(),
       tags: tagsText
         .split(',')
         .map((t) => t.trim().toLowerCase())
@@ -448,7 +474,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     } else {
       showNotice('success', `Product "${data.product.name}" saved.`);
       setEditingProduct(null);
-      await fetchFullAdminState();
+      await fetchFullAdminState(undefined, true);
       onStoreUpdated?.();
     }
   };
@@ -457,7 +483,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const res = await adminFetch(`/api/admin/products/${id}`, { method: 'DELETE' });
     if (res.ok) {
       showNotice('success', 'Product deleted.');
-      await fetchFullAdminState();
+      await fetchFullAdminState(undefined, true);
       onStoreUpdated?.();
     }
   };
@@ -476,7 +502,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     } else {
       showNotice('success', `Section "${data.section.name}" saved.`);
       setEditingSection(null);
-      await fetchFullAdminState();
+      await fetchFullAdminState(undefined, true);
       onStoreUpdated?.();
     }
   };
@@ -493,6 +519,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       method: 'PUT',
       body: JSON.stringify({ orderedIds: reordered.map((s) => s.id) }),
     });
+    await syncLocalBackupSnapshot();
     onStoreUpdated?.();
   };
 
@@ -500,7 +527,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const res = await adminFetch(`/api/admin/sections/${id}`, { method: 'DELETE' });
     if (res.ok) {
       showNotice('success', 'Section deleted.');
-      await fetchFullAdminState();
+      await fetchFullAdminState(undefined, true);
       onStoreUpdated?.();
     }
   };
@@ -516,7 +543,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     if (res.ok) {
       showNotice('success', 'Sale campaign saved.');
       setEditingSale(null);
-      await fetchFullAdminState();
+      await fetchFullAdminState(undefined, true);
       onStoreUpdated?.();
     } else {
       showNotice('error', 'Failed to save sale campaign.');
@@ -527,7 +554,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const res = await adminFetch(`/api/admin/sales/${id}`, { method: 'DELETE' });
     if (res.ok) {
       showNotice('success', 'Sale campaign deleted.');
-      await fetchFullAdminState();
+      await fetchFullAdminState(undefined, true);
       onStoreUpdated?.();
     }
   };
@@ -543,7 +570,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     if (res.ok) {
       showNotice('success', 'Promo code saved.');
       setEditingPromo(null);
-      await fetchFullAdminState();
+      await fetchFullAdminState(undefined, true);
       onStoreUpdated?.();
     } else {
       showNotice('error', 'Failed to save promo code.');
@@ -554,7 +581,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const res = await adminFetch(`/api/admin/promo-codes/${id}`, { method: 'DELETE' });
     if (res.ok) {
       showNotice('success', 'Promo code deleted.');
-      await fetchFullAdminState();
+      await fetchFullAdminState(undefined, true);
       onStoreUpdated?.();
     }
   };
@@ -572,7 +599,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       });
       if (res.ok) {
         showNotice('success', 'Store settings & visuals saved!');
-        await fetchFullAdminState();
+        await fetchFullAdminState(undefined, true);
         onStoreUpdated?.();
       } else {
         const err = await res.json().catch(() => ({}));
@@ -1574,6 +1601,49 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </div>
                     </div>
 
+                    {/* Duration & Protection Highlights (Displayed in Product Detail Modal) */}
+                    <div className="p-4 rounded-xl bg-[#090708] border border-red-500/30 space-y-3">
+                      <h4 className="text-xs font-extrabold uppercase tracking-wider text-red-400">
+                        Package Duration & Protection Badges (Shown in More Info Modal)
+                      </h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-bold text-zinc-300 mb-1">
+                            Duration (e.g., Permanent (Lifetime), 30 Days, Season 2)
+                          </label>
+                          <input
+                            type="text"
+                            value={editingProduct.duration ?? 'Permanent (Lifetime)'}
+                            onChange={(e) =>
+                              setEditingProduct({
+                                ...editingProduct,
+                                duration: e.target.value,
+                              })
+                            }
+                            placeholder="Permanent (Lifetime)"
+                            className="w-full px-3 py-2 rounded-lg bg-[#120C0E] border border-[#2C181D] focus:border-red-500 text-xs text-white outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-zinc-300 mb-1">
+                            Protection (e.g., Verified Delivery, Instant Auto-Claim)
+                          </label>
+                          <input
+                            type="text"
+                            value={editingProduct.protection ?? 'Verified Delivery'}
+                            onChange={(e) =>
+                              setEditingProduct({
+                                ...editingProduct,
+                                protection: e.target.value,
+                              })
+                            }
+                            placeholder="Verified Delivery"
+                            className="w-full px-3 py-2 rounded-lg bg-[#120C0E] border border-[#2C181D] focus:border-red-500 text-xs text-white outline-none"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
                     <div>
                       <label className="block text-xs font-bold text-zinc-300 mb-1">
                         Short Summary Description
@@ -1647,6 +1717,38 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           rows={2}
                           value={importantNotesText}
                           onChange={(e) => setImportantNotesText(e.target.value)}
+                          className="w-full px-3 py-2 rounded-lg bg-[#090708] border border-[#2C181D] text-xs text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-zinc-300 mb-1">
+                          Delivery Information
+                        </label>
+                        <input
+                          type="text"
+                          value={editingProduct.deliveryInfo || ''}
+                          onChange={(e) =>
+                            setEditingProduct({
+                              ...editingProduct,
+                              deliveryInfo: e.target.value,
+                            })
+                          }
+                          className="w-full px-3 py-2 rounded-lg bg-[#090708] border border-[#2C181D] text-xs text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-zinc-300 mb-1">
+                          Package Terms
+                        </label>
+                        <input
+                          type="text"
+                          value={editingProduct.productTerms || ''}
+                          onChange={(e) =>
+                            setEditingProduct({
+                              ...editingProduct,
+                              productTerms: e.target.value,
+                            })
+                          }
                           className="w-full px-3 py-2 rounded-lg bg-[#090708] border border-[#2C181D] text-xs text-white"
                         />
                       </div>
@@ -2330,10 +2432,63 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
 
               {/* Server & Brand Identity */}
-              <div className="space-y-3 pt-3 border-t border-[#2C181D]">
+              <div className="space-y-4 pt-3 border-t border-[#2C181D]">
                 <h3 className="text-xs font-extrabold uppercase tracking-wider text-red-400">
-                  2. Server IP, Status & Brand Details
+                  2. Hero Banner Text, Season Badge & Server Identity
                 </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-300 mb-1">
+                      Hero Top Badge / Season Title (Kicker)
+                    </label>
+                    <input
+                      type="text"
+                      value={settings.heroConfig?.kicker || ''}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          heroConfig: { ...settings.heroConfig, kicker: e.target.value },
+                        })
+                      }
+                      placeholder="OwnVerse Network • Season 2"
+                      className="w-full px-3 py-2 rounded-lg bg-[#090708] border border-[#2C181D] text-xs font-mono text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-300 mb-1">
+                      Hero Main Headline
+                    </label>
+                    <input
+                      type="text"
+                      value={settings.heroConfig?.title || ''}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          heroConfig: { ...settings.heroConfig, title: e.target.value },
+                        })
+                      }
+                      placeholder="Forge Your Dominion Across the OwnVerse Realm"
+                      className="w-full px-3 py-2 rounded-lg bg-[#090708] border border-[#2C181D] text-xs text-white"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-bold text-zinc-300 mb-1">
+                      Hero Subtitle Description
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={settings.heroConfig?.subtitle || ''}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          heroConfig: { ...settings.heroConfig, subtitle: e.target.value },
+                        })
+                      }
+                      className="w-full px-3 py-2 rounded-lg bg-[#090708] border border-[#2C181D] text-xs text-white"
+                    />
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-xs font-bold text-zinc-300 mb-1">Store Name</label>

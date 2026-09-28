@@ -182,7 +182,8 @@ export const products = pgTable('products', {
   whatYouGet: jsonb('what_you_get').$type<string[]>().notNull().default([]),
   requirements: jsonb('requirements').$type<string[]>().notNull().default([]),
   commandsPerks: jsonb('commands_perks').$type<string[]>().notNull().default([]),
-  duration: text('duration').notNull().default('Permanent (Lifetime Season Access)'),
+  duration: text('duration').notNull().default('Permanent (Lifetime)'),
+  protection: text('protection').notNull().default('Verified Delivery'),
   deliveryInfo: text('delivery_info')
     .notNull()
     .default('Instant automated in-game delivery within 1–5 minutes of payment verification.'),

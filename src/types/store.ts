@@ -140,6 +140,7 @@ export interface StoreProduct {
   requirements: string[];
   commandsPerks: string[];
   duration: string;
+  protection?: string;
   deliveryInfo: string;
   importantNotes: string;
   productTerms: string;

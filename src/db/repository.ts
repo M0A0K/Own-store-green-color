@@ -15,6 +15,7 @@ import {
   ensureStoreSeeded,
   isMemoryFallbackActive,
   memoryStore,
+  persistStoreStateToDisk,
 } from './seed.ts';
 
 function roundCurrency(val: number): number {
@@ -33,6 +34,7 @@ const mediaAssetCache = new Map<number, typeof mediaAssets.$inferSelect>();
 
 export function invalidateStoreCache(): void {
   storeBootstrapCache = null;
+  void persistStoreStateToDisk();
 }
 
 export function invalidateMediaCache(id?: number): void {
@@ -41,6 +43,7 @@ export function invalidateMediaCache(id?: number): void {
   } else {
     mediaAssetCache.clear();
   }
+  void persistStoreStateToDisk();
 }
 
 export async function getOrCreateUser(
@@ -1108,7 +1111,11 @@ export async function saveMediaAsset(payload: {
   try {
     await ensureStoreSeeded();
     if (isMemoryFallbackActive()) {
-      const id = memoryStore.mediaAssets.length + 1;
+      const maxId = memoryStore.mediaAssets.reduce(
+        (max: number, m: any) => Math.max(max, Number(m.id) || 0),
+        0
+      );
+      const id = maxId + 1;
       const item = {
         id,
         filename: payload.filename,
@@ -1121,6 +1128,7 @@ export async function saveMediaAsset(payload: {
       };
       memoryStore.mediaAssets.unshift(item);
       mediaAssetCache.set(id, item);
+      await persistStoreStateToDisk();
       return item;
     }
 
@@ -1149,6 +1157,7 @@ export async function saveMediaAsset(payload: {
       if (oldestKey !== undefined) mediaAssetCache.delete(oldestKey);
     }
     mediaAssetCache.set(updated[0].id, updated[0]);
+    await persistStoreStateToDisk();
 
     return updated[0];
   } catch (error) {
@@ -1195,7 +1204,7 @@ export async function exportStoreBackupData() {
       const { adminPasswordHash: _h, ...safeSettings } = memoryStore.settings;
       return {
         exportedAt: new Date().toISOString(),
-        version: '1.0.0',
+        version: '2.0.0',
         store: 'OwnVerse Store',
         data: {
           storeSettings: [safeSettings],
@@ -1204,25 +1213,34 @@ export async function exportStoreBackupData() {
           sales: memoryStore.sales,
           promoCodes: memoryStore.promoCodes,
           orders: memoryStore.orders,
+          mediaAssets: memoryStore.mediaAssets,
         },
       };
     }
 
-    const [settingsRows, allSections, allProducts, allSales, allPromos, allOrders] =
-      await Promise.all([
-        db.select().from(storeSettings),
-        db.select().from(sections).orderBy(asc(sections.id)),
-        db.select().from(products).orderBy(asc(products.id)),
-        db.select().from(sales).orderBy(asc(sales.id)),
-        db.select().from(promoCodes).orderBy(asc(promoCodes.id)),
-        db.select().from(orders).orderBy(asc(orders.id)),
-      ]);
+    const [
+      settingsRows,
+      allSections,
+      allProducts,
+      allSales,
+      allPromos,
+      allOrders,
+      allMedia,
+    ] = await Promise.all([
+      db.select().from(storeSettings),
+      db.select().from(sections).orderBy(asc(sections.id)),
+      db.select().from(products).orderBy(asc(products.id)),
+      db.select().from(sales).orderBy(asc(sales.id)),
+      db.select().from(promoCodes).orderBy(asc(promoCodes.id)),
+      db.select().from(orders).orderBy(asc(orders.id)),
+      db.select().from(mediaAssets).orderBy(asc(mediaAssets.id)),
+    ]);
 
     const safeSettings = settingsRows.map(({ adminPasswordHash: _h, ...rest }) => rest);
 
     return {
       exportedAt: new Date().toISOString(),
-      version: '1.0.0',
+      version: '2.0.0',
       store: 'OwnVerse Store',
       data: {
         storeSettings: safeSettings,
@@ -1231,6 +1249,7 @@ export async function exportStoreBackupData() {
         sales: allSales,
         promoCodes: allPromos,
         orders: allOrders,
+        mediaAssets: allMedia,
       },
     };
   } catch (error) {

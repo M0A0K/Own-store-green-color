@@ -697,7 +697,7 @@ export default function App() {
                       />
                       <div className="text-xs text-red-400 font-semibold tracking-wide uppercase font-mono">
                         {settings?.heroConfig.kicker ||
-                          'OwnVerse Network · Official Storefront'}
+                          'OwnVerse Network • Season 2'}
                       </div>
                     </div>
 

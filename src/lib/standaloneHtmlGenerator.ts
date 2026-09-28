@@ -7,7 +7,7 @@ export function generateStandaloneStoreHtml(storeData: {
   const safeJson = JSON.stringify(storeData).replace(/<\//g, '<\\/');
   const storeName = storeData.settings?.storeName || 'OwnVerse Store';
   const tagline =
-    storeData.settings?.storeTagline || 'Official OwnVerse Network Store';
+    storeData.settings?.storeTagline || 'Official Minecraft Network Storefront';
 
   return `<!DOCTYPE html>
 <html lang="en" class="dark">
@@ -65,7 +65,7 @@ export function generateStandaloneStoreHtml(storeData: {
 
   <!-- Promo Banner -->
   <div id="promo-banner" class="w-full px-4 py-2.5 text-xs font-medium flex flex-wrap items-center justify-center gap-3 border-b border-[#2C181D] bg-[#1F090D] text-[#FFE4E6]">
-    <span id="promo-badge" class="px-2 py-0.5 rounded font-bold uppercase tracking-wider text-[10px] bg-red-500 text-black">Season IV Launch Offer</span>
+    <span id="promo-badge" class="px-2 py-0.5 rounded font-bold uppercase tracking-wider text-[10px] bg-red-500 text-black">Season 2 Launch Offer</span>
     <span id="promo-text" class="text-center">Use promo code MAK20 to get 20% OFF across all eligible ranks, kits, and crate bundles</span>
     <button onclick="applyPromoBannerCode()" id="promo-btn" class="px-2.5 py-0.5 rounded bg-white/10 hover:bg-white/20 text-white font-mono font-semibold transition cursor-pointer">Apply Code MAK20</button>
   </div>
@@ -102,7 +102,7 @@ export function generateStandaloneStoreHtml(storeData: {
         <div class="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
           <div class="lg:col-span-7 space-y-5">
             <div id="hero-kicker" class="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-red-400">
-              OwnVerse Network · Season 2
+              OwnVerse Network • Season 2
             </div>
             <h1 id="hero-title" class="font-display text-3xl sm:text-5xl font-extrabold tracking-tight text-white leading-[1.08]">
               Forge Your Dominion Across the OwnVerse Realm
@@ -462,10 +462,22 @@ export function generateStandaloneStoreHtml(storeData: {
 
       const perks = (p.whatYouGet || []).map(item => \`<li class="flex items-start gap-2"><span class="text-red-400">✓</span><span>\${escapeHtml(item.label || item)}</span></li>\`).join('');
       const reqs = (p.requirements || []).map(r => \`<li>• \${escapeHtml(r)}</li>\`).join('');
+      const durationText = p.duration || 'Permanent (Lifetime)';
+      const protectionText = p.protection || 'Verified Delivery';
 
       document.getElementById('modal-body').innerHTML = \`
         \${p.productImageUrl ? \`<img src="\${escapeHtml(p.productImageUrl)}" class="w-full max-h-60 object-cover rounded-xl border border-[#2C181D]" />\` : ''}
         <p class="text-zinc-200 leading-relaxed whitespace-pre-line">\${escapeHtml(p.fullDescription || p.shortDescription)}</p>
+        <div class="grid grid-cols-2 gap-2.5 text-xs">
+          <div class="p-3 rounded-lg bg-[#090708] border border-[#2C181D]">
+            <span class="text-zinc-500 block">Duration</span>
+            <span class="text-zinc-200 font-semibold">\${escapeHtml(durationText)}</span>
+          </div>
+          <div class="p-3 rounded-lg bg-[#090708] border border-[#2C181D]">
+            <span class="text-zinc-500 block">Protection</span>
+            <span class="text-zinc-200 font-semibold">\${escapeHtml(protectionText)}</span>
+          </div>
+        </div>
         \${perks ? \`
           <div class="p-4 rounded-xl bg-[#090708] border border-[#2C181D] space-y-2">
             <h4 class="text-xs font-extrabold uppercase tracking-wider text-red-400">What You Receive</h4>

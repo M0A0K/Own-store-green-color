@@ -93,7 +93,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     whatYouGet: product.whatYouGet || [],
     requirements: product.requirements || [],
     commandsAndPerks: product.commandsPerks || [],
-    duration: product.duration || 'Lifetime (Permanent)',
+    duration: product.duration || 'Permanent (Lifetime)',
+    protection: product.protection || 'Verified Delivery',
     deliveryInfo:
       product.deliveryInfo ||
       'Automated in-game delivery within 1-5 minutes of verification.',
@@ -369,7 +370,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   <ShieldCheck className="w-4 h-4 text-red-500 shrink-0" />
                   <div>
                     <span className="text-zinc-500 block">Protection</span>
-                    <span className="text-zinc-200 font-semibold">Verified Delivery</span>
+                    <span className="text-zinc-200 font-semibold">{infoBlocks.protection}</span>
                   </div>
                 </div>
               </div>

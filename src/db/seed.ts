@@ -1,11 +1,17 @@
-import { eq } from 'drizzle-orm';
+import fs from 'fs';
+import path from 'path';
+import crypto from 'crypto';
+import { asc, eq } from 'drizzle-orm';
 import { db, pool, hasDatabaseConfig } from './index.ts';
 import {
+  users,
   storeSettings,
   sections,
   products,
   sales,
   promoCodes,
+  orders,
+  mediaAssets,
   type ThemeConfig,
   type HeroConfig,
   type PromoBannerConfig,
@@ -14,6 +20,11 @@ import {
   type FaqItem,
 } from './schema.ts';
 import { hashPassword } from '../middleware/auth.ts';
+
+const DATA_DIR = path.resolve(process.cwd(), 'data');
+const STORE_STATE_FILE =
+  process.env.STORE_STATE_FILE || path.join(DATA_DIR, 'store-state.json');
+const STORE_META_FILE = path.join(DATA_DIR, '.store-sync-meta.json');
 
 export const DEFAULT_THEME_CONFIG: ThemeConfig = {
   bgPrimary: '#090708',
@@ -33,7 +44,7 @@ export const DEFAULT_THEME_CONFIG: ThemeConfig = {
 };
 
 export const DEFAULT_HERO_CONFIG: HeroConfig = {
-  kicker: 'OwnVerse Network · Season IV: Crimson Citadel',
+  kicker: 'OwnVerse Network • Season 2',
   title: 'Forge Your Dominion Across the OwnVerse Realm',
   subtitle:
     'Equip lifetime network ranks, enchanted Netherite combat loadouts, and mythic vault keys. Instant in-game delivery backed by atomic inventory verification.',
@@ -46,7 +57,7 @@ export const DEFAULT_HERO_CONFIG: HeroConfig = {
 
 export const DEFAULT_PROMO_BANNER: PromoBannerConfig = {
   enabled: true,
-  title: 'Season IV Launch Offer',
+  title: 'Season 2 Launch Offer',
   text: 'Use promo code MAK20 to get 20% OFF across all eligible ranks, kits, and crate bundles',
   code: 'MAK20',
   bgColor: '#1F090D',
@@ -218,7 +229,7 @@ export const DEFAULT_FAQS: FaqItem[] = [
 ];
 
 // ============================================================================
-// In-Memory Fallback Store (Used ONLY on external hosts when no DB is attached)
+// In-Memory & Disk-Persisted Store (Used when no external PostgreSQL is attached)
 // ============================================================================
 let memoryModeActive = false;
 
@@ -246,8 +257,155 @@ export const memoryStore: {
   mediaAssets: [],
 };
 
+function computeSha256(content: string): string {
+  return crypto.createHash('sha256').update(content, 'utf8').digest('hex');
+}
+
+function loadDiskSnapshot(): {
+  data: any;
+  wasEditedInFiles: boolean;
+} | null {
+  try {
+    if (!fs.existsSync(STORE_STATE_FILE)) return null;
+    const raw = fs.readFileSync(STORE_STATE_FILE, 'utf-8');
+    if (!raw.trim()) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+
+    const currentHash = computeSha256(raw);
+    let lastAutoSavedHash: string | null = null;
+    if (fs.existsSync(STORE_META_FILE)) {
+      try {
+        const meta = JSON.parse(fs.readFileSync(STORE_META_FILE, 'utf-8'));
+        lastAutoSavedHash = meta?.lastAutoSavedHash || null;
+      } catch {
+        // Ignore corrupt meta file
+      }
+    }
+
+    const wasEditedInFiles = Boolean(
+      lastAutoSavedHash && lastAutoSavedHash !== currentHash
+    );
+    return {
+      data: parsed.data || parsed,
+      wasEditedInFiles,
+    };
+  } catch (err) {
+    console.warn('Could not load disk store snapshot:', err);
+    return null;
+  }
+}
+
+export async function persistStoreStateToDisk(): Promise<void> {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+
+    let snapshotData: any;
+
+    if (memoryModeActive) {
+      snapshotData = {
+        storeSettings: memoryStore.settings ? [memoryStore.settings] : [],
+        sections: memoryStore.sections || [],
+        products: memoryStore.products || [],
+        sales: memoryStore.sales || [],
+        promoCodes: memoryStore.promoCodes || [],
+        orders: memoryStore.orders || [],
+        mediaAssets: memoryStore.mediaAssets || [],
+        users: memoryStore.users || [],
+      };
+    } else {
+      const [
+        settingsRows,
+        allSections,
+        allProducts,
+        allSales,
+        allPromos,
+        allOrders,
+        allMedia,
+        allUsers,
+      ] = await Promise.all([
+        db.select().from(storeSettings).orderBy(asc(storeSettings.id)),
+        db.select().from(sections).orderBy(asc(sections.displayOrder), asc(sections.id)),
+        db.select().from(products).orderBy(asc(products.displayOrder), asc(products.id)),
+        db.select().from(sales).orderBy(asc(sales.id)),
+        db.select().from(promoCodes).orderBy(asc(promoCodes.id)),
+        db.select().from(orders).orderBy(asc(orders.id)),
+        db.select().from(mediaAssets).orderBy(asc(mediaAssets.id)),
+        db.select().from(users).orderBy(asc(users.id)),
+      ]);
+
+      snapshotData = {
+        storeSettings: settingsRows,
+        sections: allSections,
+        products: allProducts,
+        sales: allSales,
+        promoCodes: allPromos,
+        orders: allOrders,
+        mediaAssets: allMedia,
+        users: allUsers,
+      };
+    }
+
+    const payload = {
+      version: '2.0.0',
+      savedAt: new Date().toISOString(),
+      store: 'OwnVerse Store',
+      data: snapshotData,
+    };
+
+    const jsonString = JSON.stringify(payload, null, 2);
+    fs.writeFileSync(STORE_STATE_FILE, jsonString, 'utf-8');
+    const hash = computeSha256(jsonString);
+    fs.writeFileSync(
+      STORE_META_FILE,
+      JSON.stringify({ lastAutoSavedHash: hash, savedAt: payload.savedAt }, null, 2),
+      'utf-8'
+    );
+  } catch (err) {
+    console.warn('Failed to write store-state.json to disk:', err);
+  }
+}
+
+export function hydrateMemoryStoreFromSnapshot(data: any): boolean {
+  const settingsObj = Array.isArray(data.storeSettings)
+    ? data.storeSettings[0]
+    : data.settings || data.storeSettings;
+  if (!settingsObj) return false;
+
+  const defaultAdminKey = process.env.ADMIN_ACCESS_KEY || 'OWNVERSE-ADMIN-2026';
+  const fallbackHash = hashPassword(defaultAdminKey);
+
+  memoryStore.settings = {
+    ...settingsObj,
+    id: settingsObj.id || 1,
+    adminPasswordHash: settingsObj.adminPasswordHash || fallbackHash,
+  };
+  memoryStore.sections = Array.isArray(data.sections) ? data.sections : [];
+  memoryStore.products = Array.isArray(data.products)
+    ? data.products.map((p: any) => ({
+        ...p,
+        duration: p.duration || 'Permanent (Lifetime)',
+        protection: p.protection || 'Verified Delivery',
+      }))
+    : [];
+  memoryStore.sales = Array.isArray(data.sales) ? data.sales : [];
+  memoryStore.promoCodes = Array.isArray(data.promoCodes) ? data.promoCodes : [];
+  memoryStore.orders = Array.isArray(data.orders) ? data.orders : [];
+  memoryStore.mediaAssets = Array.isArray(data.mediaAssets) ? data.mediaAssets : [];
+  memoryStore.users = Array.isArray(data.users) ? data.users : [];
+  return true;
+}
+
 function initMemoryStoreDefaults() {
   if (memoryStore.settings) return;
+
+  const disk = loadDiskSnapshot();
+  if (disk && hydrateMemoryStoreFromSnapshot(disk.data)) {
+    return;
+  }
+
   const defaultAdminKey = process.env.ADMIN_ACCESS_KEY || 'OWNVERSE-ADMIN-2026';
   const hashedAdminKey = hashPassword(defaultAdminKey);
   const now = new Date();
@@ -344,42 +502,78 @@ function initMemoryStoreDefaults() {
   memoryStore.products = [
     {
       id: 1,
-      productCode: 'OV-RANK-VIP',
-      slug: 'vip-rank',
+      productCode: 'OV-PKG-829',
+      slug: 'vip',
       sectionId: 1,
       name: 'Vip',
       price: 19.99,
-      salePrice: 14.99,
-      emojiIcon: '👑',
+      salePrice: null,
+      emojiIcon: '⚔️',
       customLogoUrl: null,
       productImageUrl: '',
       kitPreviewImageUrl: '',
-      shortDescription:
-        'Lifetime VIP network rank with /fly in claims, 6 player vaults, VIP Kit, and crimson prefix.',
+      shortDescription: 'This vip rankd for starter',
       markdownDescription:
-        '## VIP Network Rank\nUnlock permanent privileges across Survival, Skyblock, and Factions realms on **OwnVerse**.',
+        '## Package Overview\nDescribe the in-game items, commands, and perks included.',
       rarityTier: 'Legendary',
-      customBadge: 'POPULAR',
+      customBadge: 'NEW PACKAGE',
       badgeColor: '#EF4444',
       cardAccentColor: '#EF4444',
       buttonColor: '#DC2626',
-      tags: ['rank', 'vip', 'lifetime', 'featured'],
-      featured: true,
+      tags: ['featured', 'kit'],
+      featured: false,
       visible: true,
       displayOrder: 1,
       stockType: 'unlimited',
       stockQuantity: null,
       lowStockThreshold: 5,
-      totalSold: 12,
-      whatYouGet: [
-        'Permanent [VIP] Prefix in Tab & Chat',
-        'Full VIP Kit (/kit vip)',
-        '6 Private Cloud Vaults (/pv 1–6)',
-      ],
-      requirements: ['Valid Minecraft Java or Bedrock account'],
-      commandsPerks: ['/fly (Within claims)', '/craft, /enderchest, /hat'],
+      totalSold: 1,
+      whatYouGet: ['Full Enchanted Kit', '2x Mythic Crate Keys'],
+      requirements: ['Valid Minecraft account on mc.ownverse.net'],
+      commandsPerks: ['/claim', '/kit custom'],
       duration: 'Permanent (Lifetime)',
-      deliveryInfo: 'Automated RCON dispatch within 1–5 minutes of verification.',
+      protection: 'Verified Delivery',
+      deliveryInfo: 'Instant automated in-game delivery within 1–5 minutes of verification.',
+      importantNotes: 'Ensure your Minecraft username is entered accurately.',
+      productTerms: 'Subject to OwnVerse Network Terms of Service.',
+      customInfoBlocks: [],
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: 19,
+      productCode: 'OV-PKG-573',
+      slug: 'mvp',
+      sectionId: 1,
+      name: 'Mvp',
+      price: 19.99,
+      salePrice: null,
+      emojiIcon: '⚔️',
+      customLogoUrl: null,
+      productImageUrl: '',
+      kitPreviewImageUrl: '',
+      shortDescription: 'This is mvp best kit',
+      markdownDescription:
+        '## Package Overview\nDescribe the in-game items, commands, and perks included.',
+      rarityTier: 'Legendary',
+      customBadge: 'NEW PACKAGE',
+      badgeColor: '#DC2626',
+      cardAccentColor: '#EF4444',
+      buttonColor: '#DC2626',
+      tags: ['featured', 'kit'],
+      featured: false,
+      visible: true,
+      displayOrder: 2,
+      stockType: 'unlimited',
+      stockQuantity: null,
+      lowStockThreshold: 5,
+      totalSold: 0,
+      whatYouGet: ['Full Enchanted Kit', '2x Mythic Crate Keys'],
+      requirements: ['Valid Minecraft account on mc.ownverse.net'],
+      commandsPerks: ['/claim', '/kit custom'],
+      duration: 'Permanent (Lifetime)',
+      protection: 'Verified Delivery',
+      deliveryInfo: 'Instant automated in-game delivery within 1–5 minutes of verification.',
       importantNotes: 'Ensure your Minecraft username is entered accurately.',
       productTerms: 'Subject to OwnVerse Network Terms of Service.',
       customInfoBlocks: [],
@@ -391,11 +585,11 @@ function initMemoryStoreDefaults() {
   memoryStore.sales = [
     {
       id: 1,
-      title: 'Season IV Citadel Launch Sale',
-      description: '15% OFF Store-Wide celebration discount on all packages!',
-      badgeText: '15% OFF EVENT',
+      title: 'Weekend Flash Sale',
+      description: '20% OFF Store-Wide celebration discount on all packages!',
+      badgeText: '20% OFF EVENT',
       discountType: 'percentage',
-      discountValue: 15,
+      discountValue: 20,
       targetScope: 'store',
       targetSectionId: null,
       targetProductId: null,
@@ -511,7 +705,8 @@ async function ensurePostgresTablesExist() {
       what_you_get JSONB NOT NULL DEFAULT '[]'::jsonb,
       requirements JSONB NOT NULL DEFAULT '[]'::jsonb,
       commands_perks JSONB NOT NULL DEFAULT '[]'::jsonb,
-      duration TEXT NOT NULL DEFAULT 'Permanent',
+      duration TEXT NOT NULL DEFAULT 'Permanent (Lifetime)',
+      protection TEXT NOT NULL DEFAULT 'Verified Delivery',
       delivery_info TEXT NOT NULL DEFAULT 'Instant automated in-game delivery.',
       important_notes TEXT NOT NULL DEFAULT '',
       product_terms TEXT NOT NULL DEFAULT '',
@@ -519,6 +714,7 @@ async function ensurePostgresTablesExist() {
       created_at TIMESTAMP DEFAULT NOW(),
       updated_at TIMESTAMP DEFAULT NOW()
     );
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS protection TEXT NOT NULL DEFAULT 'Verified Delivery';
     CREATE TABLE IF NOT EXISTS sales (
       id SERIAL PRIMARY KEY,
       title TEXT NOT NULL,
@@ -592,6 +788,237 @@ async function ensurePostgresTablesExist() {
   `);
 }
 
+export async function applySnapshotToPostgres(data: any): Promise<void> {
+  const defaultAdminKey = process.env.ADMIN_ACCESS_KEY || 'OWNVERSE-ADMIN-2026';
+  const fallbackHash = hashPassword(defaultAdminKey);
+
+  await db.transaction(async (tx) => {
+    const importedSettings = Array.isArray(data.storeSettings)
+      ? data.storeSettings[0]
+      : data.settings || data.storeSettings;
+
+    if (importedSettings) {
+      const existingRows = await tx.select().from(storeSettings).limit(1);
+      const settingsValues = {
+        storeName: importedSettings.storeName || 'OwnVerse Store',
+        storeTagline:
+          importedSettings.storeTagline || 'Official Minecraft Network Storefront',
+        logoUrl: importedSettings.logoUrl ?? '',
+        faviconUrl: importedSettings.faviconUrl || '/favicon.svg',
+        serverIp: importedSettings.serverIp || 'mc.ownverse.net',
+        serverPort: Number(importedSettings.serverPort) || 25565,
+        serverStatusMode: importedSettings.serverStatusMode || 'live_with_fallback',
+        manualServerOnline:
+          importedSettings.manualServerOnline !== undefined
+            ? Boolean(importedSettings.manualServerOnline)
+            : true,
+        manualPlayersOnline: Number(importedSettings.manualPlayersOnline ?? 214),
+        manualPlayersMax: Number(importedSettings.manualPlayersMax ?? 500),
+        discordInviteUrl:
+          importedSettings.discordInviteUrl || 'https://discord.gg/ownverse',
+        supportEmail: importedSettings.supportEmail || 'support@ownverse.mc',
+        supportDiscord: importedSettings.supportDiscord || 'discord.gg/ownverse',
+        supportHours:
+          importedSettings.supportHours ||
+          '24/7 Automated Delivery · Live Ticket Support 09:00–23:00 UTC',
+        currencyCode: importedSettings.currencyCode || 'USD',
+        currencySymbol: importedSettings.currencySymbol || '$',
+        themeConfig: importedSettings.themeConfig || DEFAULT_THEME_CONFIG,
+        heroConfig: importedSettings.heroConfig || DEFAULT_HERO_CONFIG,
+        promoBannerConfig:
+          importedSettings.promoBannerConfig || DEFAULT_PROMO_BANNER,
+        paymentMethodsConfig:
+          importedSettings.paymentMethodsConfig || DEFAULT_PAYMENT_METHODS,
+        policiesConfig: importedSettings.policiesConfig || DEFAULT_POLICIES,
+        faqItems: importedSettings.faqItems || DEFAULT_FAQS,
+        adminPasswordHash:
+          importedSettings.adminPasswordHash ||
+          existingRows[0]?.adminPasswordHash ||
+          fallbackHash,
+        updatedAt: new Date(),
+      };
+
+      if (existingRows.length > 0) {
+        await tx.update(storeSettings).set(settingsValues);
+      } else {
+        await tx.insert(storeSettings).values(settingsValues);
+      }
+    }
+
+    if (Array.isArray(data.sections)) {
+      await tx.delete(products);
+      await tx.delete(sections);
+      const oldToNewSectionId = new Map<number, number>();
+      for (const sec of data.sections) {
+        const inserted = await tx
+          .insert(sections)
+          .values({
+            ...(sec.id ? { id: Number(sec.id) } : {}),
+            slug: String(sec.slug || `section-${Date.now()}`),
+            name: String(sec.name || 'Section'),
+            description: String(sec.description || ''),
+            icon: String(sec.icon || 'Crown'),
+            accentColor: String(sec.accentColor || '#EF4444'),
+            bannerUrl: sec.bannerUrl || null,
+            displayOrder: Number(sec.displayOrder) || 0,
+            visible: sec.visible !== false,
+          })
+          .returning();
+        if (sec.id && inserted[0]) {
+          oldToNewSectionId.set(Number(sec.id), inserted[0].id);
+        }
+      }
+
+      if (Array.isArray(data.products)) {
+        for (const prod of data.products) {
+          const mappedSectionId =
+            prod.sectionId && oldToNewSectionId.has(Number(prod.sectionId))
+              ? oldToNewSectionId.get(Number(prod.sectionId))!
+              : null;
+
+          await tx.insert(products).values({
+            ...(prod.id ? { id: Number(prod.id) } : {}),
+            productCode: String(prod.productCode || `OV-PKG-${Date.now()}`),
+            slug: String(prod.slug || `pkg-${Date.now()}`),
+            sectionId: mappedSectionId,
+            name: String(prod.name || 'Package'),
+            price: Number(prod.price) || 0,
+            salePrice:
+              prod.salePrice !== null && prod.salePrice !== undefined
+                ? Number(prod.salePrice)
+                : null,
+            emojiIcon: String(prod.emojiIcon || '⚔️'),
+            customLogoUrl: prod.customLogoUrl || null,
+            productImageUrl: String(prod.productImageUrl || ''),
+            kitPreviewImageUrl: String(prod.kitPreviewImageUrl || ''),
+            shortDescription: String(prod.shortDescription || ''),
+            markdownDescription: String(prod.markdownDescription || ''),
+            rarityTier: String(prod.rarityTier || 'Legendary'),
+            customBadge: prod.customBadge || null,
+            badgeColor: String(prod.badgeColor || '#EF4444'),
+            cardAccentColor: String(prod.cardAccentColor || '#EF4444'),
+            buttonColor: String(prod.buttonColor || '#DC2626'),
+            tags: Array.isArray(prod.tags) ? prod.tags : [],
+            featured: Boolean(prod.featured),
+            visible: prod.visible !== false,
+            displayOrder: Number(prod.displayOrder) || 0,
+            stockType: prod.stockType === 'limited' ? 'limited' : 'unlimited',
+            stockQuantity:
+              prod.stockQuantity !== null && prod.stockQuantity !== undefined
+                ? Number(prod.stockQuantity)
+                : null,
+            lowStockThreshold: Number(prod.lowStockThreshold) || 5,
+            totalSold: Number(prod.totalSold) || 0,
+            whatYouGet: Array.isArray(prod.whatYouGet) ? prod.whatYouGet : [],
+            requirements: Array.isArray(prod.requirements) ? prod.requirements : [],
+            commandsPerks: Array.isArray(prod.commandsPerks) ? prod.commandsPerks : [],
+            duration: String(prod.duration || 'Permanent (Lifetime)'),
+            protection: String(prod.protection || 'Verified Delivery'),
+            deliveryInfo: String(
+              prod.deliveryInfo || 'Instant automated in-game delivery.'
+            ),
+            importantNotes: String(prod.importantNotes || ''),
+            productTerms: String(prod.productTerms || ''),
+            customInfoBlocks: Array.isArray(prod.customInfoBlocks)
+              ? prod.customInfoBlocks
+              : [],
+          });
+        }
+      }
+    }
+
+    if (Array.isArray(data.sales)) {
+      await tx.delete(sales);
+      for (const s of data.sales) {
+        await tx.insert(sales).values({
+          title: String(s.title || 'Sale'),
+          description: String(s.description || ''),
+          badgeText: String(s.badgeText || 'SALE'),
+          discountType: s.discountType === 'fixed' ? 'fixed' : 'percentage',
+          discountValue: Number(s.discountValue) || 0,
+          targetScope: s.targetScope || 'store',
+          targetSectionId: s.targetSectionId ? Number(s.targetSectionId) : null,
+          targetProductId: s.targetProductId ? Number(s.targetProductId) : null,
+          startDate: s.startDate ? new Date(s.startDate) : null,
+          endDate: s.endDate ? new Date(s.endDate) : null,
+          showCountdown: s.showCountdown !== false,
+          enabled: s.enabled !== false,
+        });
+      }
+    }
+
+    if (Array.isArray(data.promoCodes)) {
+      await tx.delete(promoCodes);
+      for (const promo of data.promoCodes) {
+        if (!promo.code) continue;
+        await tx
+          .insert(promoCodes)
+          .values({
+            code: String(promo.code).toUpperCase(),
+            description: String(promo.description || ''),
+            discountType: promo.discountType === 'fixed' ? 'fixed' : 'percentage',
+            discountValue: Number(promo.discountValue) || 0,
+            targetScope: promo.targetScope || 'store',
+            targetSectionId: promo.targetSectionId ? Number(promo.targetSectionId) : null,
+            targetProductId: promo.targetProductId ? Number(promo.targetProductId) : null,
+            minOrderAmount: Number(promo.minOrderAmount) || 0,
+            maxDiscountAmount:
+              promo.maxDiscountAmount !== null && promo.maxDiscountAmount !== undefined
+                ? Number(promo.maxDiscountAmount)
+                : null,
+            maxTotalUses:
+              promo.maxTotalUses !== null && promo.maxTotalUses !== undefined
+                ? Number(promo.maxTotalUses)
+                : null,
+            currentUses: Number(promo.currentUses) || 0,
+            perCustomerLimit: Number(promo.perCustomerLimit) || 1,
+            stackWithSales: promo.stackWithSales !== false,
+            startDate: promo.startDate ? new Date(promo.startDate) : null,
+            endDate: promo.endDate ? new Date(promo.endDate) : null,
+            enabled: promo.enabled !== false,
+          })
+          .onConflictDoNothing();
+      }
+    }
+
+    if (Array.isArray(data.mediaAssets) && data.mediaAssets.length > 0) {
+      const existingMedia = await tx.select().from(mediaAssets);
+      if (existingMedia.length === 0) {
+        for (const asset of data.mediaAssets) {
+          if (!asset.dataUri) continue;
+          const inserted = await tx
+            .insert(mediaAssets)
+            .values({
+              ...(asset.id ? { id: Number(asset.id) } : {}),
+              filename: String(asset.filename || 'image.png'),
+              mimeType: String(asset.mimeType || 'image/png'),
+              sizeBytes: Number(asset.sizeBytes) || 0,
+              url: String(asset.url || `/api/media/${asset.id || 1}`),
+              dataUri: String(asset.dataUri),
+              category: String(asset.category || 'product'),
+            })
+            .returning();
+          if (inserted[0] && !asset.url) {
+            await tx
+              .update(mediaAssets)
+              .set({ url: `/api/media/${inserted[0].id}` })
+              .where(eq(mediaAssets.id, inserted[0].id));
+          }
+        }
+      }
+    }
+  });
+
+  // Synchronize PostgreSQL serial sequences after explicit ID inserts
+  await pool
+    .query(`
+      SELECT setval(pg_get_serial_sequence('sections', 'id'), COALESCE((SELECT MAX(id) FROM sections), 1));
+      SELECT setval(pg_get_serial_sequence('products', 'id'), COALESCE((SELECT MAX(id) FROM products), 1));
+      SELECT setval(pg_get_serial_sequence('media_assets', 'id'), COALESCE((SELECT MAX(id) FROM media_assets), 1));
+    `)
+    .catch(() => {});
+}
+
 let seedInProgress: Promise<void> | null = null;
 let hasSeededThisProcess = false;
 
@@ -604,90 +1031,61 @@ export async function ensureStoreSeeded(): Promise<void> {
       initMemoryStoreDefaults();
       memoryModeActive = true;
       hasSeededThisProcess = true;
+      await persistStoreStateToDisk();
       seedInProgress = null;
       return;
     }
 
     try {
       let existingSettings: (typeof storeSettings.$inferSelect)[] = [];
-      try {
-        existingSettings = await db.select().from(storeSettings).limit(1);
-      } catch (err: any) {
-        if (err?.code === '42P01') {
-          await ensurePostgresTablesExist();
+      let lastDbErr: any = null;
+
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          await pool
+            .query(
+              `ALTER TABLE products ADD COLUMN IF NOT EXISTS protection TEXT NOT NULL DEFAULT 'Verified Delivery';`
+            )
+            .catch(() => {});
           existingSettings = await db.select().from(storeSettings).limit(1);
-        } else {
-          throw err;
+          lastDbErr = null;
+          break;
+        } catch (err: any) {
+          if (err?.code === '42P01') {
+            await ensurePostgresTablesExist();
+            existingSettings = await db.select().from(storeSettings).limit(1);
+            lastDbErr = null;
+            break;
+          }
+          lastDbErr = err;
+          if (attempt < 3) {
+            await new Promise((r) => setTimeout(r, 1500));
+          }
         }
       }
 
+      if (lastDbErr) {
+        throw lastDbErr;
+      }
+
+      const diskSnapshot = loadDiskSnapshot();
+
       if (existingSettings.length > 0) {
-        const current = existingSettings[0];
-        const needsRedThemeMigration =
-          current.themeConfig?.accentPrimary === '#10B981' ||
-          current.themeConfig?.buttonColor === '#10B981' ||
-          current.logoUrl?.startsWith('/src/assets/') ||
-          current.heroConfig?.bannerImage?.startsWith('/src/assets/');
-
-        const needsIpMigration = current.serverIp === 'play.ownverse.mc';
-
-        if (needsRedThemeMigration || needsIpMigration) {
-          await db.update(storeSettings).set({
-            ...(needsIpMigration
-              ? {
-                  serverIp: 'mc.ownverse.net',
-                  policiesConfig: DEFAULT_POLICIES,
-                  faqItems: DEFAULT_FAQS,
-                }
-              : {}),
-            ...(needsRedThemeMigration
-              ? {
-                  logoUrl: current.logoUrl?.startsWith('/src/assets/') ? '' : current.logoUrl,
-                  themeConfig: DEFAULT_THEME_CONFIG,
-                  heroConfig: {
-                    ...current.heroConfig,
-                    bannerImage: current.heroConfig?.bannerImage?.startsWith('/src/assets/')
-                      ? ''
-                      : current.heroConfig?.bannerImage || '',
-                  },
-                  promoBannerConfig: {
-                    ...current.promoBannerConfig,
-                    bgColor: '#1F090D',
-                    textColor: '#FFE4E6',
-                    accentColor: '#EF4444',
-                  },
-                }
-              : {}),
-          });
-
-          if (needsRedThemeMigration) {
-            const allProds = await db.select().from(products);
-            for (const p of allProds) {
-              const cleanProdImg = p.productImageUrl?.startsWith('/src/assets/')
-                ? ''
-                : p.productImageUrl;
-              const cleanKitImg = p.kitPreviewImageUrl?.startsWith('/src/assets/')
-                ? ''
-                : p.kitPreviewImageUrl;
-              const cleanLogoImg = p.customLogoUrl?.startsWith('/src/assets/')
-                ? null
-                : p.customLogoUrl;
-
-              await db
-                .update(products)
-                .set({
-                  productImageUrl: cleanProdImg,
-                  kitPreviewImageUrl: cleanKitImg,
-                  customLogoUrl: cleanLogoImg,
-                  badgeColor: p.badgeColor === '#10B981' ? '#EF4444' : p.badgeColor,
-                  cardAccentColor: p.cardAccentColor === '#10B981' ? '#EF4444' : p.cardAccentColor,
-                  buttonColor: p.buttonColor === '#10B981' ? '#DC2626' : p.buttonColor,
-                })
-                .where(eq(products.id, p.id));
-            }
-          }
+        // If the user explicitly edited data/store-state.json in the files and restarted,
+        // apply their file changes into PostgreSQL. Otherwise, NEVER overwrite their existing
+        // database settings or products—just sync the current database state to disk.
+        if (diskSnapshot && diskSnapshot.wasEditedInFiles) {
+          await applySnapshotToPostgres(diskSnapshot.data);
         }
+        await persistStoreStateToDisk();
+        hasSeededThisProcess = true;
+        return;
+      }
 
+      // If the database is empty (e.g., fresh deployment), restore from data/store-state.json if available!
+      if (diskSnapshot && diskSnapshot.data) {
+        await applySnapshotToPostgres(diskSnapshot.data);
+        await persistStoreStateToDisk();
         hasSeededThisProcess = true;
         return;
       }
@@ -777,42 +1175,75 @@ export async function ensureStoreSeeded(): Promise<void> {
         .insert(products)
         .values([
           {
-            productCode: 'OV-RANK-VIP',
-            slug: 'vip-rank',
+            productCode: 'OV-PKG-829',
+            slug: 'vip',
             sectionId: sectionMap.get('ranks')!,
             name: 'Vip',
             price: 19.99,
-            salePrice: 14.99,
-            emojiIcon: '👑',
+            salePrice: null,
+            emojiIcon: '⚔️',
             customLogoUrl: null,
             productImageUrl: '',
             kitPreviewImageUrl: '',
-            shortDescription:
-              'Lifetime VIP network rank with /fly in claims, 6 player vaults, VIP Kit, and crimson prefix.',
-            markdownDescription: `## VIP Network Rank
-Unlock permanent privileges across Survival, Skyblock, and Factions realms on **OwnVerse**.`,
+            shortDescription: 'This vip rankd for starter',
+            markdownDescription: `## Package Overview
+Describe the in-game items, commands, and perks included.`,
             rarityTier: 'Legendary',
-            customBadge: 'POPULAR',
+            customBadge: 'NEW PACKAGE',
             badgeColor: '#EF4444',
             cardAccentColor: '#EF4444',
             buttonColor: '#DC2626',
-            tags: ['rank', 'vip', 'lifetime', 'featured'],
-            featured: true,
+            tags: ['featured', 'kit'],
+            featured: false,
             visible: true,
             displayOrder: 1,
             stockType: 'unlimited',
             stockQuantity: null,
             lowStockThreshold: 5,
-            totalSold: 12,
-            whatYouGet: [
-              'Permanent [VIP] Prefix in Tab & Chat',
-              'Full VIP Kit (/kit vip)',
-              '6 Private Cloud Vaults (/pv 1–6)',
-            ],
-            requirements: ['Valid Minecraft Java or Bedrock account'],
-            commandsPerks: ['/fly (Within claims)', '/craft, /enderchest, /hat'],
+            totalSold: 1,
+            whatYouGet: ['Full Enchanted Kit', '2x Mythic Crate Keys'],
+            requirements: ['Valid Minecraft account on mc.ownverse.net'],
+            commandsPerks: ['/claim', '/kit custom'],
             duration: 'Permanent (Lifetime)',
-            deliveryInfo: 'Automated RCON dispatch within 1–5 minutes of verification.',
+            protection: 'Verified Delivery',
+            deliveryInfo: 'Instant automated in-game delivery within 1–5 minutes of verification.',
+            importantNotes: 'Ensure your Minecraft username is entered accurately.',
+            productTerms: 'Subject to OwnVerse Network Terms of Service.',
+            customInfoBlocks: [],
+          },
+          {
+            productCode: 'OV-PKG-573',
+            slug: 'mvp',
+            sectionId: sectionMap.get('ranks')!,
+            name: 'Mvp',
+            price: 19.99,
+            salePrice: null,
+            emojiIcon: '⚔️',
+            customLogoUrl: null,
+            productImageUrl: '',
+            kitPreviewImageUrl: '',
+            shortDescription: 'This is mvp best kit',
+            markdownDescription: `## Package Overview
+Describe the in-game items, commands, and perks included.`,
+            rarityTier: 'Legendary',
+            customBadge: 'NEW PACKAGE',
+            badgeColor: '#DC2626',
+            cardAccentColor: '#EF4444',
+            buttonColor: '#DC2626',
+            tags: ['featured', 'kit'],
+            featured: false,
+            visible: true,
+            displayOrder: 2,
+            stockType: 'unlimited',
+            stockQuantity: null,
+            lowStockThreshold: 5,
+            totalSold: 0,
+            whatYouGet: ['Full Enchanted Kit', '2x Mythic Crate Keys'],
+            requirements: ['Valid Minecraft account on mc.ownverse.net'],
+            commandsPerks: ['/claim', '/kit custom'],
+            duration: 'Permanent (Lifetime)',
+            protection: 'Verified Delivery',
+            deliveryInfo: 'Instant automated in-game delivery within 1–5 minutes of verification.',
             importantNotes: 'Ensure your Minecraft username is entered accurately.',
             productTerms: 'Subject to OwnVerse Network Terms of Service.',
             customInfoBlocks: [],
@@ -826,11 +1257,11 @@ Unlock permanent privileges across Survival, Skyblock, and Factions realms on **
 
       await db.insert(sales).values([
         {
-          title: 'Season IV Citadel Launch Sale',
-          description: '15% OFF Store-Wide celebration discount on all packages!',
-          badgeText: '15% OFF EVENT',
+          title: 'Weekend Flash Sale',
+          description: '20% OFF Store-Wide celebration discount on all packages!',
+          badgeText: '20% OFF EVENT',
           discountType: 'percentage',
-          discountValue: 15,
+          discountValue: 20,
           targetScope: 'store',
           targetSectionId: null,
           targetProductId: null,
@@ -862,15 +1293,19 @@ Unlock permanent privileges across Survival, Skyblock, and Factions realms on **
         },
       ]);
 
+      await persistStoreStateToDisk();
       hasSeededThisProcess = true;
     } catch (error) {
       console.warn(
-        'PostgreSQL unreachable or unconfigured; activating resilient in-memory store fallback:',
+        'PostgreSQL unreachable or unconfigured; activating disk-persisted memory store fallback:',
         error
       );
       initMemoryStoreDefaults();
       memoryModeActive = true;
       hasSeededThisProcess = true;
+      if (!fs.existsSync(STORE_STATE_FILE)) {
+        await persistStoreStateToDisk();
+      }
     } finally {
       seedInProgress = null;
     }

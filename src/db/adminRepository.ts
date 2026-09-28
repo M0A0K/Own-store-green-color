@@ -13,6 +13,9 @@ import {
   ensureStoreSeeded,
   isMemoryFallbackActive,
   memoryStore,
+  applySnapshotToPostgres,
+  hydrateMemoryStoreFromSnapshot,
+  persistStoreStateToDisk,
 } from './seed.ts';
 import { invalidateStoreCache, invalidateMediaCache } from './repository.ts';
 
@@ -307,7 +310,8 @@ export async function upsertProductData(payload: Record<string, any>) {
       commandsPerks: Array.isArray(payload.commandsPerks)
         ? payload.commandsPerks.map((s: any) => String(s).trim()).filter(Boolean)
         : [],
-      duration: String(payload.duration || 'Permanent').trim(),
+      duration: String(payload.duration || 'Permanent (Lifetime)').trim(),
+      protection: String(payload.protection || 'Verified Delivery').trim(),
       deliveryInfo: String(payload.deliveryInfo || 'Instant automated delivery.').trim(),
       importantNotes: String(payload.importantNotes || '').trim(),
       productTerms: String(payload.productTerms || '').trim(),
@@ -594,64 +598,17 @@ export async function importStoreBackupData(backupPayload: any) {
     const { data } = backupPayload;
 
     if (isMemoryFallbackActive()) {
-      if (Array.isArray(data.storeSettings) && data.storeSettings[0]) {
-        memoryStore.settings = {
-          ...memoryStore.settings,
-          ...data.storeSettings[0],
-          updatedAt: new Date(),
-        };
-      }
+      hydrateMemoryStoreFromSnapshot(data);
+      invalidateMediaCache();
       invalidateStoreCache();
+      await persistStoreStateToDisk();
       return true;
     }
 
-    await db.transaction(async (tx) => {
-      if (Array.isArray(data.storeSettings) && data.storeSettings.length > 0) {
-        const currentSettings = await tx.select().from(storeSettings).limit(1);
-        const imported = data.storeSettings[0];
-        if (currentSettings.length > 0) {
-          await tx
-            .update(storeSettings)
-            .set({
-              storeName: imported.storeName || 'OwnVerse Store',
-              storeTagline: imported.storeTagline || 'Official Minecraft Network Storefront',
-              logoUrl: imported.logoUrl ?? '',
-              serverIp: imported.serverIp || 'play.ownverse.mc',
-              discordInviteUrl: imported.discordInviteUrl || 'https://discord.gg/ownverse',
-              themeConfig: imported.themeConfig,
-              heroConfig: imported.heroConfig,
-              promoBannerConfig: imported.promoBannerConfig,
-              paymentMethodsConfig: imported.paymentMethodsConfig,
-              policiesConfig: imported.policiesConfig,
-              faqItems: imported.faqItems,
-              updatedAt: new Date(),
-            })
-            .where(eq(storeSettings.id, currentSettings[0].id));
-        }
-      }
-
-      if (Array.isArray(data.promoCodes)) {
-        for (const promo of data.promoCodes) {
-          if (!promo.code) continue;
-          await tx
-            .insert(promoCodes)
-            .values({
-              code: String(promo.code).toUpperCase(),
-              description: promo.description || '',
-              discountType: promo.discountType || 'percentage',
-              discountValue: Number(promo.discountValue) || 0,
-              targetScope: promo.targetScope || 'store',
-              minOrderAmount: Number(promo.minOrderAmount) || 0,
-              perCustomerLimit: Number(promo.perCustomerLimit) || 1,
-              stackWithSales: Boolean(promo.stackWithSales),
-              enabled: Boolean(promo.enabled),
-            })
-            .onConflictDoNothing();
-        }
-      }
-    });
-
+    await applySnapshotToPostgres(data);
+    invalidateMediaCache();
     invalidateStoreCache();
+    await persistStoreStateToDisk();
     return true;
   } catch (error: any) {
     console.error('Database query failed in importStoreBackupData:', error);
