@@ -112,10 +112,10 @@ export function generateStandaloneStoreHtml(storeData: {
 
     <div class="flex items-center gap-2.5">
       <button onclick="copyIpText('mc.ownverse.net', 'header-server-ip')" class="hidden sm:flex items-center gap-2 px-3 py-2 rounded-lg bg-[#181013] border border-[#2C181D] hover:border-red-500/40 text-xs font-mono text-zinc-200 cursor-pointer">
-        <span class="w-2 h-2 rounded-full bg-red-500"></span>
+        <span id="header-status-dot" class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
         <span id="header-server-ip">mc.ownverse.net</span>
       </button>
-      <button onclick="toggleCart(true)" class="px-4 py-2 rounded-lg bg-[#DC2626] hover:bg-red-500 text-xs font-bold text-white transition flex items-center gap-2 cursor-pointer shadow-md shadow-red-950/50">
+      <button onclick="toggleCart(true)" class="ov-btn-shine px-4 py-2 rounded-lg bg-[#DC2626] hover:bg-red-500 text-xs font-bold text-white transition flex items-center gap-2 cursor-pointer shadow-md shadow-red-950/50">
         <span>Cart (<span id="cart-count" class="font-mono">0</span>)</span>
       </button>
     </div>
@@ -371,6 +371,13 @@ export function generateStandaloneStoreHtml(storeData: {
       document.getElementById('nav-store-name').textContent = s.storeName || 'OwnVerse Store';
       document.getElementById('footer-store-name').textContent = s.storeName || 'OwnVerse Store';
       document.getElementById('header-server-ip').textContent = javaIp;
+      const statusDotEl = document.getElementById('header-status-dot');
+      if (statusDotEl) {
+        const isOnline = !STORE_DATA.serverStatus || STORE_DATA.serverStatus.online !== false;
+        statusDotEl.className = isOnline
+          ? 'w-2 h-2 rounded-full bg-emerald-500'
+          : 'w-2 h-2 rounded-full bg-red-500';
+      }
       const heroJavaEl = document.getElementById('hero-ip-java');
       if (heroJavaEl) heroJavaEl.textContent = javaIp;
 

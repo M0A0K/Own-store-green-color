@@ -877,7 +877,7 @@ export default function App() {
 
                     <h1
                       style={{ fontFamily: 'var(--font-display), sans-serif' }}
-                      className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight max-w-2xl leading-[1.12]"
+                      className="ov-gradient-text text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight max-w-2xl leading-[1.12]"
                     >
                       {settings?.heroConfig.title}
                     </h1>
@@ -936,25 +936,68 @@ export default function App() {
                   {settings?.heroConfig.showServerStatus && (
                     <div className="lg:col-span-4 animate-ov-fade-up" style={{ animationDelay: '90ms' }}>
                       <div className="rounded-xl bg-[#120C0E] border border-[#2C181D] hover:border-red-500/35 transition-colors p-5 space-y-4 shadow-xl">
-                        <div className="flex items-center justify-between border-b border-[#2C181D] pb-3">
-                          <div className="flex items-center gap-2">
+                        <div className="border-b border-[#2C181D] pb-3 space-y-2.5">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`w-2.5 h-2.5 rounded-full ov-status-dot ${
+                                  serverStatus?.online !== false
+                                    ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.75)]'
+                                    : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.75)]'
+                                }`}
+                              />
+                              <span className="text-xs font-semibold text-white">
+                                {serverStatus?.online !== false
+                                  ? 'Realm Status: Online'
+                                  : 'Realm Status: Offline'}
+                              </span>
+                            </div>
                             <span
-                              className={`w-2.5 h-2.5 rounded-full ${
+                              className={`text-xs font-mono tabular-nums font-semibold ${
                                 serverStatus?.online !== false
-                                  ? 'bg-red-500 ov-status-dot'
-                                  : 'bg-zinc-600'
+                                  ? 'text-emerald-400'
+                                  : 'text-red-400'
                               }`}
-                            />
-                            <span className="text-xs font-semibold text-white">
-                              {serverStatus?.online !== false
-                                ? 'Realm Status: Online'
-                                : 'Realm Status: Offline'}
+                            >
+                              {serverStatus?.playersOnline ?? settings.manualPlayersOnline} /{' '}
+                              {serverStatus?.playersMax ?? settings.manualPlayersMax} Players
                             </span>
                           </div>
-                          <span className="text-xs font-mono tabular-nums text-red-400 font-semibold">
-                            {serverStatus?.playersOnline ?? settings.manualPlayersOnline} /{' '}
-                            {serverStatus?.playersMax ?? settings.manualPlayersMax} Players
-                          </span>
+
+                          {/* Animated Live Player Capacity Bar */}
+                          <div className="h-1.5 w-full rounded-full bg-[#090708] border border-[#2C181D] overflow-hidden">
+                            <div
+                              style={{
+                                width: `${
+                                  serverStatus?.online === false
+                                    ? 100
+                                    : Math.min(
+                                        100,
+                                        Math.max(
+                                          6,
+                                          Math.round(
+                                            ((serverStatus?.playersOnline ??
+                                              settings.manualPlayersOnline ??
+                                              1) /
+                                              Math.max(
+                                                1,
+                                                serverStatus?.playersMax ??
+                                                  settings.manualPlayersMax ??
+                                                  500
+                                              )) *
+                                              100
+                                          )
+                                        )
+                                      )
+                                }%`,
+                              }}
+                              className={`h-full rounded-full transition-all duration-700 ease-out ov-progress-shimmer ${
+                                serverStatus?.online !== false
+                                  ? 'bg-gradient-to-r from-emerald-500 to-emerald-400'
+                                  : 'bg-gradient-to-r from-red-600 to-red-500'
+                              }`}
+                            />
+                          </div>
                         </div>
 
                         <div className="space-y-2.5">
@@ -1195,9 +1238,9 @@ export default function App() {
                       setSelectedSectionSlug('all');
                       window.history.pushState({}, '', '/');
                     }}
-                    className={`px-3.5 py-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap cursor-pointer ${
+                    className={`ov-tab-pill px-3.5 py-2 rounded-lg text-xs font-medium whitespace-nowrap cursor-pointer ${
                       selectedSectionSlug === 'all'
-                        ? 'bg-red-600 text-white font-bold'
+                        ? 'bg-red-600 text-white font-bold shadow-md shadow-red-950/60'
                         : 'text-zinc-300 hover:text-white'
                     }`}
                   >
@@ -1213,9 +1256,9 @@ export default function App() {
                           setSelectedSectionSlug(sec.slug);
                           window.history.pushState({}, '', `/section/${sec.slug}`);
                         }}
-                        className={`px-3.5 py-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap cursor-pointer ${
+                        className={`ov-tab-pill px-3.5 py-2 rounded-lg text-xs font-medium whitespace-nowrap cursor-pointer ${
                           selectedSectionSlug === sec.slug
-                            ? 'bg-red-600 text-white font-bold'
+                            ? 'bg-red-600 text-white font-bold shadow-md shadow-red-950/60'
                             : 'text-zinc-300 hover:text-white'
                         }`}
                       >
@@ -1263,7 +1306,7 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => setFilterFeaturedOnly((v) => !v)}
-                    className={`px-3 py-1.5 rounded-lg border transition-colors whitespace-nowrap cursor-pointer ${
+                    className={`ov-tab-pill px-3 py-1.5 rounded-lg border transition-colors whitespace-nowrap cursor-pointer ${
                       filterFeaturedOnly
                         ? 'bg-red-500/15 border-red-500 text-red-300 font-medium'
                         : 'bg-[#120C0E] border-[#2C181D] text-zinc-300 hover:text-white'
@@ -1274,7 +1317,7 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => setFilterOnSaleOnly((v) => !v)}
-                    className={`px-3 py-1.5 rounded-lg border transition-colors whitespace-nowrap cursor-pointer ${
+                    className={`ov-tab-pill px-3 py-1.5 rounded-lg border transition-colors whitespace-nowrap cursor-pointer ${
                       filterOnSaleOnly
                         ? 'bg-red-500/15 border-red-500 text-red-300 font-medium'
                         : 'bg-[#120C0E] border-[#2C181D] text-zinc-300 hover:text-white'
@@ -1285,7 +1328,7 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => setFilterLimitedStockOnly((v) => !v)}
-                    className={`px-3 py-1.5 rounded-lg border transition-colors whitespace-nowrap cursor-pointer ${
+                    className={`ov-tab-pill px-3 py-1.5 rounded-lg border transition-colors whitespace-nowrap cursor-pointer ${
                       filterLimitedStockOnly
                         ? 'bg-red-500/15 border-red-500 text-red-300 font-medium'
                         : 'bg-[#120C0E] border-[#2C181D] text-zinc-300 hover:text-white'
@@ -1365,7 +1408,10 @@ export default function App() {
                   </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+                <div
+                  key={`${selectedSectionSlug}-${sortBy}-${filterFeaturedOnly}-${filterOnSaleOnly}-${filterLimitedStockOnly}-${selectedTag}`}
+                  className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8"
+                >
                   {filteredProducts.map((product, prodIdx) => {
                     const sec = product.sectionId
                       ? sectionMap.get(product.sectionId)
@@ -1404,7 +1450,7 @@ export default function App() {
                                   ? '#3F3F46'
                                   : product.badgeColor || '#EF4444',
                               }}
-                              className="absolute top-3 left-3 px-2.5 py-1 rounded text-[11px] font-bold tracking-wide text-white"
+                              className="animate-ov-badge-float absolute top-3 left-3 px-2.5 py-1 rounded text-[11px] font-bold tracking-wide text-white shadow-md"
                             >
                               {product.isOutOfStock
                                 ? 'OUT OF STOCK'
@@ -1418,7 +1464,7 @@ export default function App() {
                           <div className="space-y-2">
                             {/* Clean Unboxed Metadata with Typographic Separators */}
                             <div className="flex items-center gap-1.5 text-xs text-zinc-400 truncate">
-                              <span>{product.emojiIcon}</span>
+                              <span className="ov-emoji-icon">{product.emojiIcon}</span>
                               <span>{sec?.name || 'Catalog'}</span>
                               <span aria-hidden="true">·</span>
                               <span className="text-zinc-300">{product.rarityTier}</span>
@@ -1496,7 +1542,7 @@ export default function App() {
                                       theme?.buttonColor ||
                                       '#DC2626',
                                 }}
-                                className="ov-btn-shine py-2.5 px-3 rounded-lg text-xs font-bold text-white hover:opacity-95 active:scale-95 disabled:opacity-50 disabled:text-zinc-400 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer"
+                                className="group/btn ov-btn-shine py-2.5 px-3 rounded-lg text-xs font-bold text-white hover:opacity-95 active:scale-95 disabled:opacity-50 disabled:text-zinc-400 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer"
                               >
                                 {product.isOutOfStock ? (
                                   <span>Out of Stock</span>
@@ -1507,7 +1553,7 @@ export default function App() {
                                   </span>
                                 ) : (
                                   <>
-                                    <ShoppingBag className="w-3.5 h-3.5" />
+                                    <ShoppingBag className="w-3.5 h-3.5 group-hover/btn:scale-110 group-hover/btn:-rotate-6 transition-transform" />
                                     <span>Add to Cart</span>
                                   </>
                                 )}
@@ -1538,16 +1584,17 @@ export default function App() {
                         key={rv.id}
                         type="button"
                         onClick={() => handleOpenProductDetail(rv)}
-                        className="p-3 rounded-xl bg-[#120C0E] border border-[#2C181D] hover:border-red-500/50 text-left flex items-center gap-3 transition-colors cursor-pointer"
+                        className="group ov-trust-card p-3 rounded-xl bg-[#120C0E] border border-[#2C181D] hover:border-red-500/50 text-left flex items-center gap-3 transition-all cursor-pointer"
                       >
                         <SmartImage
                           src={rv.productImageUrl}
                           alt={rv.name}
                           fallbackEmoji={rv.emojiIcon}
-                          className="w-12 h-12 rounded-lg shrink-0"
+                          className="w-12 h-12 rounded-lg shrink-0 overflow-hidden"
+                          imgClassName="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                         />
                         <div className="min-w-0">
-                          <div className="text-xs font-semibold text-white truncate">
+                          <div className="text-xs font-semibold text-white group-hover:text-red-400 transition-colors truncate">
                             {rv.name}
                           </div>
                           <div className="text-xs font-mono text-red-400 tabular-nums">

@@ -265,12 +265,12 @@ export const CartCheckoutModal: React.FC<CartCheckoutModalProps> = ({
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 overflow-y-auto">
-      <div className="relative w-full max-w-4xl bg-[#110B0D] border border-[#2C181D] rounded-xl shadow-2xl overflow-hidden my-auto max-h-[92vh] flex flex-col">
+    <div className="animate-ov-backdrop fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 overflow-y-auto">
+      <div className="animate-ov-modal-in relative w-full max-w-4xl bg-[#110B0D] border border-[#2C181D] rounded-xl shadow-2xl overflow-hidden my-auto max-h-[92vh] flex flex-col">
         {/* Top Bar */}
         <div className="flex items-center justify-between px-6 py-4 bg-[#160E11] border-b border-[#2C181D] shrink-0">
           <div className="flex items-center gap-3">
-            <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 ov-status-dot" />
             <h2 className="text-lg font-extrabold text-white tracking-tight uppercase">
               {step === 'cart' && 'Your Shopping Cart'}
               {step === 'checkout' && 'Complete Payment & Verification'}

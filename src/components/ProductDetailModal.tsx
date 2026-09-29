@@ -119,9 +119,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const buttonColor = product.buttonColor || '#DC2626';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 overflow-y-auto">
+    <div className="animate-ov-backdrop fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 overflow-y-auto">
       <div
-        className="relative w-full max-w-5xl bg-[#110B0D] border border-[#2C181D] rounded-xl shadow-2xl overflow-hidden my-auto max-h-[92vh] flex flex-col"
+        className="animate-ov-modal-in relative w-full max-w-5xl bg-[#110B0D] border border-[#2C181D] rounded-xl shadow-2xl overflow-hidden my-auto max-h-[92vh] flex flex-col"
         style={{
           borderTopWidth: '3px',
           borderTopColor: accentColor,

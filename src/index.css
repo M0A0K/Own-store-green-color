@@ -127,6 +127,44 @@ h1, h2, h3, h4, .font-display {
   }
 }
 
+@keyframes ovBackdropIn {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes ovModalIn {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 22px, 0) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes ovBadgeFloat {
+  0%, 100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -2.5px, 0);
+  }
+}
+
+@keyframes ovTextFlow {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
 .animate-ov-fade-up {
   animation: ovFadeUp 0.52s cubic-bezier(0.16, 1, 0.3, 1) both;
   will-change: transform, opacity;
@@ -155,6 +193,29 @@ h1, h2, h3, h4, .font-display {
 
 .animate-ov-pop {
   animation: ovPop 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.animate-ov-backdrop {
+  animation: ovBackdropIn 0.22s ease-out both;
+}
+
+.animate-ov-modal-in {
+  animation: ovModalIn 0.34s cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: transform, opacity;
+}
+
+.animate-ov-badge-float {
+  animation: ovBadgeFloat 3s ease-in-out infinite;
+  will-change: transform;
+}
+
+.ov-gradient-text {
+  background: linear-gradient(90deg, #FFFFFF 0%, #FFE4E6 35%, #FCA5A5 65%, #FDE68A 85%, #FFFFFF 100%);
+  background-size: 220% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: ovTextFlow 7s ease-in-out infinite;
 }
 
 /* Live status radar ring */
@@ -200,6 +261,18 @@ h1, h2, h3, h4, .font-display {
 
 .ov-btn-shine:hover::after {
   animation: ovShimmer 0.75s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Category Tab Pill Spring */
+.ov-tab-pill {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              background-color 0.2s ease,
+              color 0.2s ease,
+              box-shadow 0.2s ease;
+}
+
+.ov-tab-pill:hover {
+  transform: translate3d(0, -1.5px, 0);
 }
 
 /* Navigation link sliding underline */
@@ -270,6 +343,43 @@ h1, h2, h3, h4, .font-display {
   transform: scaleX(1);
 }
 
+@keyframes ovProgressSweep {
+  0% {
+    transform: translate3d(-100%, 0, 0);
+  }
+  100% {
+    transform: translate3d(220%, 0, 0);
+  }
+}
+
+.ov-progress-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.ov-progress-shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: 45%;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.4) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  animation: ovProgressSweep 2.4s ease-in-out infinite;
+}
+
+.ov-emoji-icon {
+  display: inline-block;
+  transition: transform 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ov-card-animated:hover .ov-emoji-icon {
+  transform: scale(1.22) rotate(-8deg);
+}
+
 .ov-trust-card {
   transition: transform 0.26s cubic-bezier(0.16, 1, 0.3, 1),
               border-color 0.25s ease;
@@ -320,12 +430,19 @@ h1, h2, h3, h4, .font-display {
   .animate-ov-ember,
   .animate-ov-glow,
   .animate-ov-pop,
+  .animate-ov-backdrop,
+  .animate-ov-modal-in,
+  .animate-ov-badge-float,
+  .ov-gradient-text,
+  .ov-progress-shimmer::after,
   .ov-status-dot::after,
   .ov-btn-shine,
   .ov-btn-shine::after,
+  .ov-tab-pill,
   .ov-ip-row,
   .ov-card-animated,
   .ov-card-animated::before,
+  .ov-emoji-icon,
   .ov-trust-card,
   .ov-ad-banner,
   .ov-ad-banner::after {
@@ -334,5 +451,6 @@ h1, h2, h3, h4, .font-display {
     transform: none !important;
   }
 }
+
 
 
