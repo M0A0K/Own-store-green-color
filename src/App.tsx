@@ -167,6 +167,17 @@ export default function App() {
   const [promoAppliedToast, setPromoAppliedToast] = useState<string | null>(null);
   const [copiedIpKey, setCopiedIpKey] = useState<string | null>(null);
   const [addedProductId, setAddedProductId] = useState<number | null>(null);
+  const [discordWidget, setDiscordWidget] = useState<{
+    name: string;
+    presenceCount: number | null;
+    inviteUrl: string | null;
+    members: { id: string; username: string; avatar_url: string }[];
+  }>({
+    name: 'OwnVerse Discord',
+    presenceCount: null,
+    inviteUrl: null,
+    members: [],
+  });
 
   const loadStoreData = useCallback(async () => {
     try {
@@ -201,6 +212,24 @@ export default function App() {
 
   useEffect(() => {
     loadStoreData();
+    const fetchDiscordWidget = () => {
+      fetch('https://discord.com/api/guilds/1420822972595306551/widget.json')
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => {
+          if (d) {
+            setDiscordWidget({
+              name: d.name || 'OwnVerse Discord',
+              presenceCount:
+                typeof d.presence_count === 'number' ? d.presence_count : null,
+              inviteUrl: d.instant_invite || null,
+              members: Array.isArray(d.members) ? d.members.slice(0, 4) : [],
+            });
+          }
+        })
+        .catch(() => {});
+    };
+    fetchDiscordWidget();
+
     const interval = setInterval(() => {
       fetch('/api/server-status')
         .then((r) => (r.ok ? r.json() : null))
@@ -208,6 +237,7 @@ export default function App() {
           if (d) setServerStatus(d);
         })
         .catch(() => {});
+      fetchDiscordWidget();
     }, 30_000);
     return () => clearInterval(interval);
   }, [loadStoreData]);
@@ -592,8 +622,8 @@ export default function App() {
               setSelectedSectionSlug('all');
               navigateTo('store', '/');
             }}
-            className={`hover:text-white hover:underline underline-offset-4 transition-colors whitespace-nowrap cursor-pointer ${
-              viewMode === 'store' ? 'text-red-400 font-semibold' : ''
+            className={`ov-nav-link hover:text-white transition-colors whitespace-nowrap cursor-pointer ${
+              viewMode === 'store' ? 'text-red-400 font-semibold ov-nav-link-active' : ''
             }`}
           >
             Catalog
@@ -601,8 +631,8 @@ export default function App() {
           <button
             type="button"
             onClick={() => navigateTo('order-lookup')}
-            className={`hover:text-white hover:underline underline-offset-4 transition-colors whitespace-nowrap cursor-pointer ${
-              viewMode === 'order-lookup' ? 'text-red-400 font-semibold' : ''
+            className={`ov-nav-link hover:text-white transition-colors whitespace-nowrap cursor-pointer ${
+              viewMode === 'order-lookup' ? 'text-red-400 font-semibold ov-nav-link-active' : ''
             }`}
           >
             Order Lookup
@@ -610,8 +640,8 @@ export default function App() {
           <button
             type="button"
             onClick={() => navigateTo('faq')}
-            className={`hover:text-white hover:underline underline-offset-4 transition-colors whitespace-nowrap cursor-pointer ${
-              viewMode === 'faq' ? 'text-red-400 font-semibold' : ''
+            className={`ov-nav-link hover:text-white transition-colors whitespace-nowrap cursor-pointer ${
+              viewMode === 'faq' ? 'text-red-400 font-semibold ov-nav-link-active' : ''
             }`}
           >
             FAQ
@@ -619,8 +649,8 @@ export default function App() {
           <button
             type="button"
             onClick={() => navigateTo('support')}
-            className={`hover:text-white hover:underline underline-offset-4 transition-colors whitespace-nowrap cursor-pointer ${
-              viewMode === 'support' ? 'text-red-400 font-semibold' : ''
+            className={`ov-nav-link hover:text-white transition-colors whitespace-nowrap cursor-pointer ${
+              viewMode === 'support' ? 'text-red-400 font-semibold ov-nav-link-active' : ''
             }`}
           >
             Support
@@ -628,8 +658,8 @@ export default function App() {
           <button
             type="button"
             onClick={() => navigateTo('admin')}
-            className={`hover:text-white hover:underline underline-offset-4 transition-colors whitespace-nowrap cursor-pointer ${
-              viewMode === 'admin' ? 'text-red-400 font-semibold' : ''
+            className={`ov-nav-link hover:text-white transition-colors whitespace-nowrap cursor-pointer ${
+              viewMode === 'admin' ? 'text-red-400 font-semibold ov-nav-link-active' : ''
             }`}
           >
             Admin
@@ -643,7 +673,7 @@ export default function App() {
               type="button"
               onClick={handleSignOut}
               title={`Signed in as ${userEmail}`}
-              className="px-3 py-2 rounded-lg bg-[#181013] border border-[#2C181D] hover:border-red-500/40 text-xs font-medium text-zinc-200 flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
+              className="px-3 py-2 rounded-lg bg-[#181013] border border-[#2C181D] hover:border-red-500/40 hover:-translate-y-0.5 active:scale-95 transition-all text-xs font-medium text-zinc-200 flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
             >
               <LogOut className="w-3.5 h-3.5 text-zinc-400" />
               <span className="hidden sm:inline max-w-[110px] truncate">{userEmail}</span>
@@ -652,7 +682,7 @@ export default function App() {
             <button
               type="button"
               onClick={handleGoogleSignIn}
-              className="px-3 py-2 rounded-lg bg-[#181013] border border-[#2C181D] hover:border-red-500/40 text-xs font-medium text-zinc-200 flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
+              className="px-3 py-2 rounded-lg bg-[#181013] border border-[#2C181D] hover:border-red-500/40 hover:-translate-y-0.5 active:scale-95 transition-all text-xs font-medium text-zinc-200 flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
             >
               <LogIn className="w-3.5 h-3.5 text-red-400" />
               <span className="hidden sm:inline">Sign In</span>
@@ -663,7 +693,7 @@ export default function App() {
             type="button"
             onClick={() => setIsCartOpen(true)}
             style={{ backgroundColor: theme?.buttonColor || '#DC2626' }}
-            className="px-4 py-2 rounded-lg text-xs font-bold text-white hover:opacity-95 transition-opacity flex items-center gap-2 whitespace-nowrap shrink-0 cursor-pointer shadow-md shadow-red-950/50"
+            className="ov-btn-shine px-4 py-2 rounded-lg text-xs font-bold text-white hover:opacity-95 hover:-translate-y-0.5 active:scale-95 transition-all flex items-center gap-2 whitespace-nowrap shrink-0 cursor-pointer shadow-md shadow-red-950/50"
           >
             <ShoppingBag className="w-3.5 h-3.5" />
             <span className="font-mono tabular-nums">Cart ({totalCartCount})</span>
@@ -798,9 +828,40 @@ export default function App() {
                 <div className="absolute inset-0 bg-gradient-to-br from-[#1A090D] via-[#0E0709] to-[#090708]" />
               )}
 
+              {/* Lightweight GPU-Accelerated Ambient Glow Orbs & Floating Embers */}
+              <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
+                <div
+                  className="absolute -top-24 -left-20 w-80 h-80 rounded-full bg-red-600/15 blur-3xl animate-ov-orb"
+                />
+                <div
+                  className="absolute top-1/3 right-10 w-72 h-72 rounded-full bg-amber-500/10 blur-3xl animate-ov-orb"
+                  style={{ animationDelay: '2.5s' }}
+                />
+                <span
+                  className="absolute bottom-8 left-[14%] w-1.5 h-1.5 rounded-full bg-red-400/70 animate-ov-ember"
+                  style={{ animationDelay: '0.2s' }}
+                />
+                <span
+                  className="absolute bottom-12 left-[32%] w-1 h-1 rounded-full bg-amber-400/70 animate-ov-ember"
+                  style={{ animationDelay: '1.6s' }}
+                />
+                <span
+                  className="absolute bottom-6 left-[54%] w-1.5 h-1.5 rounded-full bg-red-500/60 animate-ov-ember"
+                  style={{ animationDelay: '2.9s' }}
+                />
+                <span
+                  className="absolute bottom-14 left-[76%] w-1 h-1 rounded-full bg-amber-300/60 animate-ov-ember"
+                  style={{ animationDelay: '0.9s' }}
+                />
+                <span
+                  className="absolute bottom-10 left-[88%] w-1.5 h-1.5 rounded-full bg-red-400/65 animate-ov-ember"
+                  style={{ animationDelay: '3.7s' }}
+                />
+              </div>
+
               <div className="relative max-w-7xl mx-auto px-4 sm:px-8 py-12 lg:py-16 space-y-8">
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-                  <div className="lg:col-span-8 space-y-5 animate-ov-fade-up">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                  <div className="lg:col-span-8 space-y-5 animate-ov-fade-up lg:pt-2">
                     <div className="flex items-center gap-3">
                       <SmartImage
                         src={settings?.logoUrl}
@@ -829,12 +890,12 @@ export default function App() {
                       <a
                         href="#catalog"
                         style={{ backgroundColor: theme?.buttonColor || '#DC2626' }}
-                        className="px-5 py-3 rounded-lg text-xs sm:text-sm font-bold text-white hover:opacity-95 hover:-translate-y-0.5 active:scale-95 transition-all flex items-center gap-2 whitespace-nowrap shadow-lg shadow-red-950/50"
+                        className="group ov-btn-shine px-5 py-3 rounded-lg text-xs sm:text-sm font-bold text-white hover:opacity-95 hover:-translate-y-0.5 active:scale-95 transition-all flex items-center gap-2 whitespace-nowrap shadow-lg shadow-red-950/50"
                       >
                         <span>
                           {settings?.heroConfig.primaryCtaText || 'Explore Store Catalog'}
                         </span>
-                        <ArrowRight className="w-4 h-4" />
+                        <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                       </a>
 
                       <button
@@ -845,21 +906,33 @@ export default function App() {
                         {settings?.heroConfig.secondaryCtaText || 'Track Existing Order'}
                       </button>
 
-                      {settings?.discordInviteUrl && (
+                      {(discordWidget.inviteUrl || settings?.discordInviteUrl) && (
                         <a
-                          href={settings.discordInviteUrl}
+                          href={
+                            discordWidget.inviteUrl ||
+                            settings?.discordInviteUrl ||
+                            'https://discord.gg/ownverse'
+                          }
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="px-4 py-3 rounded-lg bg-[#120C0E] border border-[#2C181D] hover:border-red-500/50 hover:-translate-y-0.5 active:scale-95 text-xs sm:text-sm font-medium text-zinc-200 flex items-center gap-2 transition-all whitespace-nowrap"
+                          className="ov-btn-shine px-4 py-3 rounded-lg bg-[#120C0E] border border-[#5865F2]/40 hover:border-[#5865F2] hover:bg-[#5865F2]/10 hover:-translate-y-0.5 active:scale-95 text-xs sm:text-sm font-medium text-zinc-100 flex items-center gap-2.5 transition-all whitespace-nowrap"
                         >
-                          <MessageSquare className="w-4 h-4 text-red-400" />
-                          <span>Join Discord</span>
+                          <MessageSquare className="w-4 h-4 text-[#5865F2]" />
+                          <span className="font-semibold">Join Discord</span>
+                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-[11px] font-mono font-semibold text-emerald-400">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 ov-status-dot" />
+                            <span>
+                              {discordWidget.presenceCount !== null
+                                ? `${discordWidget.presenceCount} Online`
+                                : 'Online'}
+                            </span>
+                          </span>
                         </a>
                       )}
                     </div>
                   </div>
 
-                  {/* Live Server Status Card */}
+                  {/* Live Server Status Card & Discord Widget */}
                   {settings?.heroConfig.showServerStatus && (
                     <div className="lg:col-span-4 animate-ov-fade-up" style={{ animationDelay: '90ms' }}>
                       <div className="rounded-xl bg-[#120C0E] border border-[#2C181D] hover:border-red-500/35 transition-colors p-5 space-y-4 shadow-xl">
@@ -868,7 +941,7 @@ export default function App() {
                             <span
                               className={`w-2.5 h-2.5 rounded-full ${
                                 serverStatus?.online !== false
-                                  ? 'bg-red-500'
+                                  ? 'bg-red-500 ov-status-dot'
                                   : 'bg-zinc-600'
                               }`}
                             />
@@ -890,7 +963,7 @@ export default function App() {
                           </div>
 
                           {/* Java Edition IP */}
-                          <div className="p-2.5 rounded-lg bg-[#090708] border border-[#2C181D] space-y-1">
+                          <div className="ov-ip-row p-2.5 rounded-lg bg-[#090708] border border-[#2C181D] space-y-1">
                             <div className="flex items-center justify-between">
                               <span className="text-[10px] font-bold uppercase tracking-wider text-red-400">
                                 Java Edition IP
@@ -915,13 +988,13 @@ export default function App() {
                                     'java'
                                   )
                                 }
-                                className="px-2.5 py-1 rounded bg-[#181013] border border-[#2C181D] hover:border-red-500/50 text-[11px] font-medium text-zinc-200 flex items-center gap-1 whitespace-nowrap cursor-pointer"
+                                className="px-2.5 py-1 rounded bg-[#181013] border border-[#2C181D] hover:border-red-500/50 active:scale-95 transition-all text-[11px] font-medium text-zinc-200 flex items-center gap-1 whitespace-nowrap cursor-pointer"
                               >
                                 {copiedIpKey === 'java' ? (
-                                  <>
+                                  <span className="inline-flex items-center gap-1 text-red-300 animate-ov-pop">
                                     <Check className="w-3 h-3 text-red-400" />
                                     <span>Copied</span>
-                                  </>
+                                  </span>
                                 ) : (
                                   <>
                                     <Copy className="w-3 h-3" />
@@ -933,7 +1006,7 @@ export default function App() {
                           </div>
 
                           {/* Bedrock Edition IP & Port */}
-                          <div className="p-2.5 rounded-lg bg-[#090708] border border-[#2C181D] space-y-1">
+                          <div className="ov-ip-row p-2.5 rounded-lg bg-[#090708] border border-[#2C181D] space-y-1">
                             <div className="flex items-center justify-between">
                               <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400">
                                 Bedrock Edition IP
@@ -949,13 +1022,13 @@ export default function App() {
                               <button
                                 type="button"
                                 onClick={() => handleCopyIpValue('play.ownverse.fun', 'bedrock')}
-                                className="px-2.5 py-1 rounded bg-[#181013] border border-[#2C181D] hover:border-red-500/50 text-[11px] font-medium text-zinc-200 flex items-center gap-1 whitespace-nowrap cursor-pointer"
+                                className="px-2.5 py-1 rounded bg-[#181013] border border-[#2C181D] hover:border-red-500/50 active:scale-95 transition-all text-[11px] font-medium text-zinc-200 flex items-center gap-1 whitespace-nowrap cursor-pointer"
                               >
                                 {copiedIpKey === 'bedrock' ? (
-                                  <>
+                                  <span className="inline-flex items-center gap-1 text-red-300 animate-ov-pop">
                                     <Check className="w-3 h-3 text-red-400" />
                                     <span>Copied</span>
-                                  </>
+                                  </span>
                                 ) : (
                                   <>
                                     <Copy className="w-3 h-3" />
@@ -967,7 +1040,7 @@ export default function App() {
                           </div>
 
                           {/* Pakistan Low-Ping Proxy IP */}
-                          <div className="p-2.5 rounded-lg bg-[#090708] border border-red-500/30 space-y-1">
+                          <div className="ov-ip-row p-2.5 rounded-lg bg-[#090708] border border-red-500/30 space-y-1">
                             <div className="flex items-center justify-between">
                               <span className="text-[10px] font-bold uppercase tracking-wider text-red-400">
                                 Pakistan · Better Ping IP
@@ -983,13 +1056,13 @@ export default function App() {
                               <button
                                 type="button"
                                 onClick={() => handleCopyIpValue('uae.ownverse.net', 'pk')}
-                                className="px-2.5 py-1 rounded bg-[#181013] border border-[#2C181D] hover:border-red-500/50 text-[11px] font-medium text-zinc-200 flex items-center gap-1 whitespace-nowrap cursor-pointer"
+                                className="px-2.5 py-1 rounded bg-[#181013] border border-[#2C181D] hover:border-red-500/50 active:scale-95 transition-all text-[11px] font-medium text-zinc-200 flex items-center gap-1 whitespace-nowrap cursor-pointer"
                               >
                                 {copiedIpKey === 'pk' ? (
-                                  <>
+                                  <span className="inline-flex items-center gap-1 text-red-300 animate-ov-pop">
                                     <Check className="w-3 h-3 text-red-400" />
                                     <span>Copied</span>
-                                  </>
+                                  </span>
                                 ) : (
                                   <>
                                     <Copy className="w-3 h-3" />
@@ -1000,6 +1073,62 @@ export default function App() {
                             </div>
                           </div>
                         </div>
+
+                        {/* Minimal Thin Discord Banner under Server IPs */}
+                        <a
+                          href={
+                            discordWidget.inviteUrl ||
+                            settings?.discordInviteUrl ||
+                            'https://discord.gg/ownverse'
+                          }
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="group ov-ip-row p-2.5 rounded-lg bg-[#090708] border border-[#5865F2]/35 hover:border-[#5865F2] hover:bg-[#5865F2]/[0.06] transition-all flex items-center justify-between gap-2.5"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="w-8 h-8 rounded-lg bg-[#5865F2]/15 border border-[#5865F2]/40 flex items-center justify-center text-[#5865F2] shrink-0 group-hover:bg-[#5865F2] group-hover:text-white group-hover:scale-105 transition-all">
+                              <MessageSquare className="w-4 h-4" />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-[#8EA1E1] truncate">
+                                  {discordWidget.name || 'Discord Server'}
+                                </span>
+                                <span className="inline-flex items-center gap-1 text-[10px] font-mono font-semibold text-emerald-400 shrink-0">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 ov-status-dot" />
+                                  <span>
+                                    {discordWidget.presenceCount !== null
+                                      ? `${discordWidget.presenceCount} Online`
+                                      : 'Live'}
+                                  </span>
+                                </span>
+                              </div>
+                              <div className="text-xs font-bold text-white truncate">
+                                Community &amp; Support Discord
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            {discordWidget.members.length > 0 && (
+                              <div className="hidden sm:flex -space-x-1.5 overflow-hidden">
+                                {discordWidget.members.slice(0, 3).map((m) => (
+                                  <img
+                                    key={m.id}
+                                    src={m.avatar_url}
+                                    alt={m.username}
+                                    title={m.username}
+                                    className="inline-block w-5 h-5 rounded-full ring-1 ring-[#090708] object-cover"
+                                  />
+                                ))}
+                              </div>
+                            )}
+                            <span className="ov-btn-shine px-2.5 py-1 rounded bg-[#5865F2] group-hover:bg-[#4752C4] text-[11px] font-bold text-white flex items-center gap-1 transition-colors whitespace-nowrap">
+                              <span>Join</span>
+                              <ExternalLink className="w-3 h-3" />
+                            </span>
+                          </div>
+                        </a>
 
                         <div className="flex items-center justify-between text-[11px] text-zinc-400 font-mono tabular-nums pt-1">
                           <span>Automated RCON Delivery</span>
@@ -1182,9 +1311,32 @@ export default function App() {
                   )}
                 </div>
 
-                <div className="text-zinc-400 font-mono tabular-nums">
-                  Showing {filteredProducts.length} package
-                  {filteredProducts.length === 1 ? '' : 's'}
+                <div className="flex items-center gap-3">
+                  <a
+                    href={
+                      discordWidget.inviteUrl ||
+                      settings?.discordInviteUrl ||
+                      'https://discord.gg/ownverse'
+                    }
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="ov-btn-shine px-3 py-1.5 rounded-lg bg-[#120C0E] border border-[#5865F2]/40 hover:border-[#5865F2] hover:bg-[#5865F2]/10 hover:-translate-y-0.5 active:scale-95 text-xs font-medium text-white flex items-center gap-2 transition-all whitespace-nowrap"
+                  >
+                    <MessageSquare className="w-3.5 h-3.5 text-[#5865F2]" />
+                    <span className="font-semibold">Join Discord</span>
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-500/15 text-[10px] font-mono font-semibold text-emerald-400">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 ov-status-dot" />
+                      <span>
+                        {discordWidget.presenceCount !== null
+                          ? `${discordWidget.presenceCount} Online`
+                          : 'Live'}
+                      </span>
+                    </span>
+                  </a>
+                  <div className="text-zinc-400 font-mono tabular-nums">
+                    Showing {filteredProducts.length} package
+                    {filteredProducts.length === 1 ? '' : 's'}
+                  </div>
                 </div>
               </div>
 
@@ -1327,7 +1479,7 @@ export default function App() {
                               <button
                                 type="button"
                                 onClick={() => handleOpenProductDetail(product)}
-                                className="py-2.5 px-3 rounded-lg bg-[#090708] border border-[#2C181D] hover:border-red-500/40 text-xs font-medium text-zinc-200 hover:text-white transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer"
+                                className="py-2.5 px-3 rounded-lg bg-[#090708] border border-[#2C181D] hover:border-red-500/40 active:scale-95 text-xs font-medium text-zinc-200 hover:text-white transition-all flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer"
                               >
                                 <Info className="w-3.5 h-3.5 text-red-400" />
                                 <span>More Info</span>
@@ -1344,15 +1496,15 @@ export default function App() {
                                       theme?.buttonColor ||
                                       '#DC2626',
                                 }}
-                                className="py-2.5 px-3 rounded-lg text-xs font-bold text-white hover:opacity-95 disabled:opacity-50 disabled:text-zinc-400 disabled:cursor-not-allowed transition-opacity flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer"
+                                className="ov-btn-shine py-2.5 px-3 rounded-lg text-xs font-bold text-white hover:opacity-95 active:scale-95 disabled:opacity-50 disabled:text-zinc-400 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer"
                               >
                                 {product.isOutOfStock ? (
                                   <span>Out of Stock</span>
                                 ) : isJustAdded ? (
-                                  <>
+                                  <span className="inline-flex items-center gap-1.5 animate-ov-pop">
                                     <Check className="w-3.5 h-3.5" />
                                     <span>Added</span>
-                                  </>
+                                  </span>
                                 ) : (
                                   <>
                                     <ShoppingBag className="w-3.5 h-3.5" />
@@ -1431,7 +1583,7 @@ export default function App() {
             {/* 3. Store Trust, Delivery & Payment Ecosystem Section */}
             <section className="max-w-7xl mx-auto px-4 sm:px-8">
               <div className="rounded-2xl bg-[#120C0E] border border-[#2C181D] p-6 sm:p-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="space-y-2">
+                <div className="ov-trust-card p-4 rounded-xl bg-[#090708]/60 border border-[#2C181D] hover:border-red-500/35 space-y-2">
                   <div className="flex items-center gap-2 text-sm font-semibold text-white">
                     <ShieldCheck className="w-4 h-4 text-red-500" />
                     <span>Atomic Stock & Fraud Protection</span>
@@ -1443,7 +1595,7 @@ export default function App() {
                   </p>
                 </div>
 
-                <div className="space-y-2">
+                <div className="ov-trust-card p-4 rounded-xl bg-[#090708]/60 border border-[#2C181D] hover:border-amber-500/35 space-y-2">
                   <div className="flex items-center gap-2 text-sm font-semibold text-white">
                     <Clock className="w-4 h-4 text-amber-400" />
                     <span>1–5 Minute Automated Delivery</span>
@@ -1455,7 +1607,7 @@ export default function App() {
                   </p>
                 </div>
 
-                <div className="space-y-2">
+                <div className="ov-trust-card p-4 rounded-xl bg-[#090708]/60 border border-[#2C181D] hover:border-red-500/35 space-y-2">
                   <div className="flex items-center gap-2 text-sm font-semibold text-white">
                     <Tag className="w-4 h-4 text-red-400" />
                     <span>Local & Global Payment Methods</span>

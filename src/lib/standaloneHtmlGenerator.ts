@@ -64,6 +64,30 @@ export function generateStandaloneStoreHtml(storeData: {
     ::-webkit-scrollbar-track { background: #090708; }
     ::-webkit-scrollbar-thumb { background: #2C181D; border-radius: 9999px; }
     ::-webkit-scrollbar-thumb:hover { background: #EF4444; }
+    @keyframes ovFadeUp {
+      0% { opacity: 0; transform: translate3d(0, 16px, 0) scale(0.985); }
+      100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+    }
+    @keyframes ovShimmer {
+      0% { transform: translate3d(-130%, 0, 0) skewX(-18deg); }
+      100% { transform: translate3d(230%, 0, 0) skewX(-18deg); }
+    }
+    .animate-ov-fade-up { animation: ovFadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
+    .ov-btn-shine { position: relative; overflow: hidden; transition: transform 0.2s ease, opacity 0.2s ease; }
+    .ov-btn-shine::after {
+      content: ''; position: absolute; top: 0; left: 0; width: 42%; height: 100%;
+      background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.22) 50%, rgba(255,255,255,0) 100%);
+      transform: translate3d(-150%, 0, 0) skewX(-18deg); pointer-events: none;
+    }
+    .ov-btn-shine:hover::after { animation: ovShimmer 0.75s cubic-bezier(0.16, 1, 0.3, 1); }
+    .ov-card-animated {
+      position: relative;
+      transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease, box-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .ov-card-animated:hover {
+      transform: translate3d(0, -6px, 0);
+      box-shadow: 0 20px 40px -14px rgba(220, 38, 38, 0.3), 0 0 0 1px rgba(239, 68, 68, 0.38);
+    }
   </style>
 </head>
 <body class="min-h-screen flex flex-col bg-[#090708] text-[#FAF5F6] selection:bg-red-500/30 selection:text-red-200">
@@ -133,6 +157,23 @@ export function generateStandaloneStoreHtml(storeData: {
                 <span class="block text-[10px] uppercase tracking-wider text-red-400 font-bold">Pakistan Better Ping</span>
                 <strong id="hero-ip-pk" class="text-xs text-white">uae.ownverse.net</strong>
               </button>
+            </div>
+            <div class="pt-2">
+              <a id="discord-thin-banner" href="https://discord.gg/ownverse" target="_blank" rel="noopener noreferrer" class="p-3 rounded-xl bg-[#181013] hover:bg-[#241519] border border-[#5865F2]/40 hover:border-[#5865F2] flex items-center justify-between gap-3 transition">
+                <div class="flex items-center gap-3 min-w-0">
+                  <span class="px-2 py-1 rounded-md bg-[#5865F2]/20 border border-[#5865F2]/40 text-[#8EA1E1] text-[10px] font-mono font-bold uppercase shrink-0">Discord</span>
+                  <div class="min-w-0">
+                    <div class="flex items-center gap-2">
+                      <span id="discord-guild-name" class="text-xs font-bold text-white truncate">OwnVerse Discord</span>
+                      <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-500/15 text-[10px] font-mono font-bold text-emerald-400 shrink-0">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                        <span id="discord-online-count">Live Online</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <span class="px-3 py-1 rounded-lg bg-[#5865F2] hover:bg-[#4752C4] text-[11px] font-bold text-white shrink-0">Join Server ↗</span>
+              </a>
             </div>
           </div>
 
@@ -347,6 +388,22 @@ export function generateStandaloneStoreHtml(storeData: {
         document.getElementById('promo-banner').style.display = 'none';
       }
 
+      const discordBanner = document.getElementById('discord-thin-banner');
+      if (discordBanner && s.discordInviteUrl) {
+        discordBanner.href = s.discordInviteUrl;
+      }
+      fetch('https://discord.com/api/guilds/1420822972595306551/widget.json')
+        .then(r => r.ok ? r.json() : null)
+        .then(d => {
+          if (!d) return;
+          const nameEl = document.getElementById('discord-guild-name');
+          const countEl = document.getElementById('discord-online-count');
+          if (nameEl && d.name) nameEl.textContent = d.name;
+          if (countEl && typeof d.presence_count === 'number') countEl.textContent = d.presence_count + ' Online';
+          if (discordBanner && d.instant_invite) discordBanner.href = d.instant_invite;
+        })
+        .catch(() => {});
+
       renderSpotlight();
       renderStoreAds();
       renderSectionTabs();
@@ -478,11 +535,11 @@ export function generateStandaloneStoreHtml(storeData: {
         const hasDiscount = orig > price;
 
         return \`
-          <article class="rounded-xl bg-[#181013] border border-[#2C181D] hover:border-red-500/40 transition flex flex-col justify-between overflow-hidden shadow-lg">
+          <article class="ov-card-animated animate-ov-fade-up rounded-xl bg-[#181013] border border-[#2C181D] hover:border-red-500/40 transition flex flex-col justify-between overflow-hidden shadow-lg">
             <div>
               \${p.productImageUrl ? \`
                 <div class="h-44 w-full bg-[#090708] border-b border-[#2C181D] overflow-hidden relative">
-                  <img src="\${escapeHtml(p.productImageUrl)}" alt="\${escapeHtml(p.name)}" class="w-full h-full object-cover" loading="lazy" />
+                  <img src="\${escapeHtml(p.productImageUrl)}" alt="\${escapeHtml(p.name)}" class="w-full h-full object-cover hover:scale-105 transition-transform duration-500" loading="lazy" />
                 </div>
               \` : \`
                 <div class="h-36 w-full bg-gradient-to-br from-[#230B10] via-[#14090C] to-[#090708] border-b border-[#2C181D] flex items-center justify-center p-4">
@@ -503,7 +560,7 @@ export function generateStandaloneStoreHtml(storeData: {
             </div>
             <div class="p-5 pt-0 grid grid-cols-2 gap-2.5">
               <button onclick="openProductModal(\${p.id})" class="py-2.5 px-3 rounded-lg bg-[#120C0E] hover:bg-[#231419] border border-[#2C181D] text-xs font-bold text-zinc-200 cursor-pointer">More Info</button>
-              <button onclick="addToCart(\${p.id})" class="py-2.5 px-3 rounded-lg bg-[#DC2626] hover:bg-red-500 text-xs font-bold text-white cursor-pointer">Add to Cart</button>
+              <button onclick="addToCart(\${p.id})" class="ov-btn-shine py-2.5 px-3 rounded-lg bg-[#DC2626] hover:bg-red-500 text-xs font-bold text-white cursor-pointer">Add to Cart</button>
             </div>
           </article>
         \`;
